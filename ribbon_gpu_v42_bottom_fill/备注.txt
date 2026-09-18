@@ -1,0 +1,10 @@
+项目：Spectral Fiber Ribbon — GPU V4.2（丝带按钮动效）
+版本：V4.2 Bottom Fill（优化版，2026-08-10 保存）
+
+【未开源声明】
+本项目为私有作品，未开源。
+未经作者授权，禁止复制、公开、分发、转售或用于商业用途。
+
+文件说明：
+- index.html                主文件（当前版本）
+- index_fibers_backup.html  丝带版备份（上一版）

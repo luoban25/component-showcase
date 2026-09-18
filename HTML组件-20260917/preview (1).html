@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Smooth Status Flow</title>
+<style>
+  :root{
+    --bg:#fff;
+    --text:#111827;
+    --muted:#a3a3a3;
+    --done:#11aa66;
+    --amber:#f59e0b;
+    --lime:#22c55e;
+    --red:#ff4b4f;
+    --border:#e5e7eb;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    background:var(--bg);
+    color:var(--text);
+    font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
+  }
+  .page{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:42px 20px;
+  }
+  .canvas{
+    width:min(100%,460px);
+  }
+
+  /* row reveal */
+  .step,.success-row{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    height:0;
+    min-height:0;
+    opacity:0;
+    overflow:hidden;
+    transform:translateY(-7px);
+    transition:
+      height .46s cubic-bezier(.22,.75,.22,1),
+      min-height .46s cubic-bezier(.22,.75,.22,1),
+      opacity .34s ease,
+      transform .46s cubic-bezier(.22,.75,.22,1);
+  }
+  .step.visible,.success-row.visible{
+    height:58px;
+    min-height:58px;
+    opacity:1;
+    overflow:visible;
+    transform:translateY(0);
+  }
+
+  .icon-box{
+    position:relative;
+    width:38px;
+    height:38px;
+    flex:0 0 38px;
+  }
+
+  /* 3x3 appears before text */
+  .pixels{
+    position:absolute;
+    inset:1px;
+    display:grid;
+    grid-template-columns:repeat(3,10px);
+    grid-template-rows:repeat(3,10px);
+    width:36px;
+    height:36px;
+    padding:3px;
+    opacity:0;
+    transform:scale(.72);
+    filter:none;
+    transition:
+      opacity .36s ease,
+      transform .5s cubic-bezier(.2,.9,.25,1.18);
+  }
+  .step.icon-visible .pixels{
+    opacity:1;
+    transform:scale(1);
+  }
+  .pixels i{
+    width:10px;
+    height:10px;
+    background:currentColor;
+    box-shadow:inset 0 0 3px rgba(255,255,255,.42);
+    animation:pxPulse .76s linear infinite;
+  }
+  .pixels i:nth-child(1){animation-delay:-.04s}
+  .pixels i:nth-child(2){animation-delay:-.22s}
+  .pixels i:nth-child(3){animation-delay:-.39s}
+  .pixels i:nth-child(4){animation-delay:-.17s}
+  .pixels i:nth-child(5){animation-delay:-.48s}
+  .pixels i:nth-child(6){animation-delay:-.31s}
+  .pixels i:nth-child(7){animation-delay:-.57s}
+  .pixels i:nth-child(8){animation-delay:-.11s}
+  .pixels i:nth-child(9){animation-delay:-.43s}
+
+  .amber{color:var(--amber)}
+  .lime{color:var(--lime)}
+  .red{color:var(--red)}
+
+  /* only active state has glow */
+  .step.running .amber{
+    filter:drop-shadow(0 0 5px rgba(245,158,11,.82))
+           drop-shadow(0 0 12px rgba(217,119,6,.42));
+  }
+  .step.running .lime{
+    filter:drop-shadow(0 0 5px rgba(34,197,94,.82))
+           drop-shadow(0 0 12px rgba(22,163,74,.42));
+  }
+  .step.running .red{
+    filter:drop-shadow(0 0 5px rgba(255,71,75,.86))
+           drop-shadow(0 0 12px rgba(255,31,36,.46));
+  }
+
+  /* text appears after pixels */
+  .label{
+    font-size:25px;
+    line-height:1.25;
+    white-space:nowrap;
+    opacity:0;
+    transform:translateX(-5px);
+    transition:
+      opacity .5s ease,
+      transform .55s cubic-bezier(.22,.75,.22,1),
+      color 1s cubic-bezier(.22,.75,.22,1);
+  }
+  .step.text-visible .label{
+    opacity:1;
+    transform:translateX(0);
+  }
+
+  /* completion crossfade */
+  .small-check{
+    position:absolute;
+    inset:1px;
+    width:36px;
+    height:36px;
+    fill:var(--done);
+    opacity:0;
+    transform:scale(.72);
+    filter:none;
+    transition:
+      opacity .34s ease,
+      transform .46s cubic-bezier(.2,.9,.25,1.15);
+  }
+  .step.done .pixels{
+    opacity:0;
+    transform:scale(.78);
+    filter:none!important;
+  }
+  .step.done .pixels i{animation:none}
+  .step.done .small-check{
+    opacity:1;
+    transform:scale(1);
+  }
+  .step.text-done .label{
+    color:var(--done);
+  }
+
+  /* gray dots: grow down, animate only while transitioning, then freeze */
+  .flow-dots{
+    margin-left:17px;
+    width:6px;
+    height:0;
+    opacity:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:space-between;
+    transition:
+      height .5s cubic-bezier(.22,.75,.22,1),
+      opacity .35s ease,
+      margin .5s cubic-bezier(.22,.75,.22,1);
+  }
+  .flow-dots.visible{
+    height:36px;
+    opacity:1;
+    margin-top:2px;
+    margin-bottom:2px;
+  }
+  .flow-dots i{
+    width:3px;
+    height:3px;
+    border-radius:50%;
+    background:var(--muted);
+    opacity:.48;
+  }
+  .flow-dots.moving i{
+    animation:dotTravel .66s ease-in-out infinite;
+  }
+  .flow-dots.moving i:nth-child(2){animation-delay:.08s}
+  .flow-dots.moving i:nth-child(3){animation-delay:.16s}
+  .flow-dots.moving i:nth-child(4){animation-delay:.24s}
+  .flow-dots.moving i:nth-child(5){animation-delay:.32s}
+  .flow-dots.settled i{
+    animation:none;
+    opacity:.6;
+    transform:none;
+  }
+
+  .success-row{
+    color:var(--done);
+    font-weight:600;
+  }
+  .success-row span{
+    font-size:25px;
+    white-space:nowrap;
+    opacity:0;
+    transform:translateX(-5px);
+    transition:opacity .5s ease,transform .55s cubic-bezier(.22,.75,.22,1);
+  }
+  .success-row.text-visible span{
+    opacity:1;
+    transform:translateX(0);
+  }
+  .success-icon{
+    width:38px;
+    height:38px;
+    flex:0 0 38px;
+    opacity:0;
+    transform:scale(.72);
+    transition:opacity .36s ease,transform .5s cubic-bezier(.2,.9,.25,1.15);
+  }
+  .success-row.icon-visible .success-icon{
+    opacity:1;
+    transform:scale(1);
+  }
+
+  .replay{
+    margin-top:28px;
+    min-height:44px;
+    border:1px solid var(--border);
+    background:#fff;
+    color:var(--text);
+    border-radius:10px;
+    padding:0 16px;
+    font:inherit;
+    font-size:14px;
+    cursor:pointer;
+  }
+
+  @keyframes pxPulse{
+    0%,100%{opacity:.14}
+    20%{opacity:.4}
+    44%{opacity:1}
+    66%{opacity:.68}
+    84%{opacity:.28}
+  }
+  @keyframes dotTravel{
+    0%{opacity:.18;transform:translateY(-2px)}
+    50%{opacity:.8;transform:translateY(1px)}
+    100%{opacity:.24;transform:translateY(3px)}
+  }
+
+  @media(max-width:360px){
+    .label,.success-row span{font-size:21px}
+    .step,.success-row{gap:14px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+<main class="page">
+<section class="canvas" aria-live="polite">
+
+  <div class="step visible" data-step="0">
+    <div class="icon-box">
+      <span class="pixels amber" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <svg class="small-check" viewBox="0 0 1024 1024" aria-hidden="true">
+        <path d="M511.5904 1024c-58.0608 0-117.0432-9.9328-174.592-30.9248C71.68 896.512-65.6384 602.2144 30.9248 336.896 127.488 71.5776 421.888-65.6384 687.2064 30.9248a32.0512 32.0512 0 0 1 19.1488 41.0624 32.1024 32.1024 0 0 1-40.96 19.1488C433.152 6.5536 175.616 126.6688 91.0336 358.8096 6.5536 590.848 126.6688 848.4864 358.912 932.9664c232.1408 84.3776 489.7792-35.6352 574.2592-267.776 54.4768-149.7088 24.7808-318.6688-77.5168-440.9344a31.98976 31.98976 0 0 1 49.0496-41.0624C1021.6448 322.9696 1055.5392 516.096 993.28 687.104 917.7088 894.7712 720.7936 1024 511.5904 1024z"/>
+        <path d="M485.4784 688.0256h-.4096c-9.3184-.1024-18.1248-4.3008-24.1664-11.4688L279.552 460.5952a31.97952 31.97952 0 0 1 48.9472-41.1648l157.3888 187.4944L856.064 186.88a32.0512 32.0512 0 0 1 45.1584-2.8672 31.9488 31.9488 0 0 1 2.8672 45.1584L509.44 677.1712c-6.0416 6.8608-14.848 10.8544-23.9616 10.8544z"/>
+      </svg>
+    </div>
+    <span class="label">Thinking</span>
+  </div>
+
+  <div class="flow-dots" data-flow="0"><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="step" data-step="1">
+    <div class="icon-box">
+      <span class="pixels lime" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <svg class="small-check" viewBox="0 0 1024 1024" aria-hidden="true">
+        <path d="M511.5904 1024c-58.0608 0-117.0432-9.9328-174.592-30.9248C71.68 896.512-65.6384 602.2144 30.9248 336.896 127.488 71.5776 421.888-65.6384 687.2064 30.9248a32.0512 32.0512 0 0 1 19.1488 41.0624 32.1024 32.1024 0 0 1-40.96 19.1488C433.152 6.5536 175.616 126.6688 91.0336 358.8096 6.5536 590.848 126.6688 848.4864 358.912 932.9664c232.1408 84.3776 489.7792-35.6352 574.2592-267.776 54.4768-149.7088 24.7808-318.6688-77.5168-440.9344a31.98976 31.98976 0 0 1 49.0496-41.0624C1021.6448 322.9696 1055.5392 516.096 993.28 687.104 917.7088 894.7712 720.7936 1024 511.5904 1024z"/>
+        <path d="M485.4784 688.0256h-.4096c-9.3184-.1024-18.1248-4.3008-24.1664-11.4688L279.552 460.5952a31.97952 31.97952 0 0 1 48.9472-41.1648l157.3888 187.4944L856.064 186.88a32.0512 32.0512 0 0 1 45.1584-2.8672 31.9488 31.9488 0 0 1 2.8672 45.1584L509.44 677.1712c-6.0416 6.8608-14.848 10.8544-23.9616 10.8544z"/>
+      </svg>
+    </div>
+    <span class="label">Reading file</span>
+  </div>
+
+  <div class="flow-dots" data-flow="1"><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="step" data-step="2">
+    <div class="icon-box">
+      <span class="pixels red" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <svg class="small-check" viewBox="0 0 1024 1024" aria-hidden="true">
+        <path d="M511.5904 1024c-58.0608 0-117.0432-9.9328-174.592-30.9248C71.68 896.512-65.6384 602.2144 30.9248 336.896 127.488 71.5776 421.888-65.6384 687.2064 30.9248a32.0512 32.0512 0 0 1 19.1488 41.0624 32.1024 32.1024 0 0 1-40.96 19.1488C433.152 6.5536 175.616 126.6688 91.0336 358.8096 6.5536 590.848 126.6688 848.4864 358.912 932.9664c232.1408 84.3776 489.7792-35.6352 574.2592-267.776 54.4768-149.7088 24.7808-318.6688-77.5168-440.9344a31.98976 31.98976 0 0 1 49.0496-41.0624C1021.6448 322.9696 1055.5392 516.096 993.28 687.104 917.7088 894.7712 720.7936 1024 511.5904 1024z"/>
+        <path d="M485.4784 688.0256h-.4096c-9.3184-.1024-18.1248-4.3008-24.1664-11.4688L279.552 460.5952a31.97952 31.97952 0 0 1 48.9472-41.1648l157.3888 187.4944L856.064 186.88a32.0512 32.0512 0 0 1 45.1584-2.8672 31.9488 31.9488 0 0 1 2.8672 45.1584L509.44 677.1712c-6.0416 6.8608-14.848 10.8544-23.9616 10.8544z"/>
+      </svg>
+    </div>
+    <span class="label">Reading input.tsx</span>
+  </div>
+
+  <div class="flow-dots" data-flow="2"><i></i><i></i><i></i><i></i><i></i></div>
+
+  <div class="success-row">
+    <svg class="success-icon" viewBox="0 0 1024 1024" aria-hidden="true">
+      <path d="M955.733333 512c0 245.077333-198.656 443.733333-443.733333 443.733333S68.266667 757.077333 68.266667 512 266.922667 68.266667 512 68.266667s443.733333 198.656 443.733333 443.733333z" fill="#11AA66"/>
+      <path d="M512 102.4C285.7984 102.4 102.4 285.7984 102.4 512s183.3984 409.6 409.6 409.6 409.6-183.3984 409.6-409.6S738.2016 102.4 512 102.4zM34.133333 512C34.133333 248.081067 248.081067 34.133333 512 34.133333s477.866667 213.947733 477.866667 477.866667-213.947733 477.866667-477.866667 477.866667S34.133333 775.918933 34.133333 512z" fill="#11AA66"/>
+      <path d="M787.114667 339.285333a51.2 51.2 0 0 1 0 72.362667l-307.2 307.2a51.2 51.2 0 0 1-72.362667 0l-170.666667-170.666667a51.2 51.2 0 0 1 72.362667-72.362666L443.733333 610.235733l271.018667-271.018666a51.2 51.2 0 0 1 72.362667 0z" fill="#fff"/>
+    </svg>
+    <span>Success</span>
+  </div>
+
+  <button class="replay" type="button">Replay</button>
+</section>
+</main>
+
+<script>
+(() => {
+  const steps = [...document.querySelectorAll('.step')];
+  const flows = [...document.querySelectorAll('.flow-dots')];
+  const success = document.querySelector('.success-row');
+  const replay = document.querySelector('.replay');
+  let timers = [];
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+
+  function revealIcon(i){
+    steps[i].classList.add('visible','icon-visible','running');
+  }
+  function revealText(i){
+    steps[i].classList.add('text-visible');
+  }
+  function startFlow(i){
+    flows[i].classList.add('visible','moving');
+    flows[i].classList.remove('settled');
+  }
+  function settleFlow(i){
+    flows[i].classList.remove('moving');
+    flows[i].classList.add('settled');
+  }
+  function completeStep(i){
+    steps[i].classList.remove('running');
+    steps[i].classList.add('done');
+    later(() => steps[i].classList.add('text-done'), 520);
+  }
+  function revealSuccess(){
+    success.classList.add('visible');
+    later(() => success.classList.add('icon-visible'), 120);
+    later(() => success.classList.add('text-visible'), 480);
+  }
+
+  function run(){
+    timers.forEach(clearTimeout);
+    timers = [];
+
+    steps.forEach(s => s.classList.remove(
+      'visible','icon-visible','text-visible','running','done','text-done'
+    ));
+    flows.forEach(f => f.classList.remove('visible','moving','settled'));
+    success.classList.remove('visible','icon-visible','text-visible');
+
+    // 1. Thinking
+    revealIcon(0);
+    later(() => revealText(0), 420);
+    later(() => startFlow(0), 1150);
+
+    // connector ends at the next 3x3
+    later(() => {
+      settleFlow(0);
+      revealIcon(1);
+    }, 2000);
+
+    // previous step completes only after next 3x3 has arrived
+    later(() => completeStep(0), 2200);
+    later(() => revealText(1), 2420);
+
+    // 2. Reading file
+    later(() => startFlow(1), 3150);
+    later(() => {
+      settleFlow(1);
+      revealIcon(2);
+    }, 4000);
+    later(() => completeStep(1), 4200);
+    later(() => revealText(2), 4420);
+
+    // 3. Reading input.tsx
+    later(() => startFlow(2), 5150);
+    later(() => settleFlow(2), 6000);
+    later(() => completeStep(2), 6200);
+
+    // final success
+    later(() => revealSuccess(), 7000);
+  }
+
+  replay.addEventListener('click', run);
+  run();
+})();
+</script>
+</body>
+</html>

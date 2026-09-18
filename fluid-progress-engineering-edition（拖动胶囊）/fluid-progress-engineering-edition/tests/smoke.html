@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fluid Progress · Smoke Tests</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="../assets/css/fluid-progress.css?v=1.3.1" />
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 32px 20px; background: #eef0f5; color: #171820; font: 15px/1.55 Arial, sans-serif; }
+    main { width: min(860px, 100%); margin: 0 auto; }
+    #testCard { margin: 24px 0; }
+    #results { padding: 18px 22px; border-radius: 18px; background: #fff; box-shadow: 0 14px 42px rgba(30,35,50,.08); }
+    .pass { color: #08783e; }
+    .fail { color: #b42318; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Fluid Progress 冒烟测试</h1>
+    <div id="testCard"
+      data-fluid-progress
+      data-theme="coral-magenta"
+      data-title="TEST PROGRESS"
+      data-draggable="true"></div>
+    <div id="results" aria-live="polite">运行中…</div>
+  </main>
+
+  <script src="../assets/js/fluid-progress-themes.js?v=1.3.1"></script>
+  <script src="../assets/js/fluid-progress.js?v=1.3.1"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      var results = [];
+      var root = document.getElementById("testCard");
+      var card = FluidProgress.get(root);
+
+      function assert(name, condition) {
+        results.push({ name: name, passed: Boolean(condition) });
+      }
+
+      assert("自动初始化实例", Boolean(card));
+      assert("缺省进度为 64", Math.round(card.getProgress()) === 64);
+      assert("暴露 1.3.1 版本", FluidProgress.version === "1.3.1");
+      assert("默认不创建 CSS 火花层", root.querySelectorAll(".fpc-spark").length === 0);
+      assert("可拖动组件使用 slider 语义", root.getAttribute("role") === "slider");
+      assert("slider 可获得键盘焦点", root.getAttribute("tabindex") === "0");
+      assert("ARIA 初始值为 64", root.getAttribute("aria-valuenow") === "64");
+
+      card.setProgress("not-a-number", true);
+      assert("非法进度不会污染状态", Math.round(card.getProgress()) === 64);
+
+      card.setProgress(120, true);
+      assert("上界限制为 100", Math.round(card.getProgress()) === 100);
+      card.setProgress(-10, true);
+      assert("下界限制为 0", Math.round(card.getProgress()) === 0);
+      card.setProgress(64, true);
+
+      var inputEvents = 0;
+      var changeEvents = 0;
+      root.addEventListener("fluidprogressinput", function () { inputEvents += 1; });
+      root.addEventListener("fluidprogresschange", function () { changeEvents += 1; });
+      root.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true }));
+      assert("方向键更新目标值", Math.round(card.getTargetProgress()) === 65);
+      assert("方向键同步 ARIA", root.getAttribute("aria-valuenow") === "65");
+      assert("方向键发送 input 事件", inputEvents === 1);
+      assert("方向键发送 change 事件", changeEvents === 1);
+
+      card.setTheme("purple-navy");
+      assert("有效主题同步到 DOM", root.getAttribute("data-theme") === "purple-navy");
+      card.setTheme("missing-theme");
+      assert("非法主题不会覆盖有效主题", root.getAttribute("data-theme") === "purple-navy");
+
+      card.setEffects({ stir: 2, delay: -1, echo: 0.4, spark: 2 });
+      var effects = card.getEffects();
+      assert("效果参数限制在 0–1", effects.stir === 1 && effects.delay === 0 && effects.echo === 0.4 && effects.spark === 1);
+      assert("启用后按需创建 12 个 CSS 火花粒子", root.querySelectorAll(".fpc-spark").length === 12);
+      card.setEffects({ stir: 0, delay: 0, echo: 0, spark: 0 });
+      assert("实验效果可以完整关闭", root.getAttribute("data-stir") === "0" && root.getAttribute("data-delay") === "0" && root.getAttribute("data-echo") === "0" && root.getAttribute("data-spark") === "0");
+
+      card.setDraggable(false);
+      assert("只读组件使用 progressbar 语义", root.getAttribute("role") === "progressbar");
+      assert("只读组件移除 tabindex", !root.hasAttribute("tabindex"));
+
+      card.destroy();
+      assert("销毁后实例不可再获取", FluidProgress.get(root) === null);
+      assert("销毁后移除交互焦点", root.getAttribute("aria-disabled") === "true" && !root.hasAttribute("tabindex"));
+      card = FluidProgress.create(root, { progress: 32, draggable: true });
+      assert("销毁后可以安全重建", Math.round(card.getProgress()) === 32 && root.getAttribute("role") === "slider");
+
+      var failed = results.filter(function (result) { return !result.passed; });
+      document.getElementById("results").innerHTML = [
+        '<strong id="summary" class="' + (failed.length ? 'fail' : 'pass') + '">' +
+          (failed.length ? failed.length + ' 项失败' : results.length + ' 项全部通过') +
+        '</strong>',
+        '<ol>' + results.map(function (result) {
+          return '<li class="' + (result.passed ? 'pass' : 'fail') + '">' +
+            (result.passed ? 'PASS · ' : 'FAIL · ') + result.name + '</li>';
+        }).join('') + '</ol>'
+      ].join('');
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#001d1b">
+  <meta name="description" content="A self-contained interactive AI prompt with WebGL2 liquid and SDF effects.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23001d1b'/%3E%3Ccircle cx='32' cy='32' r='20' fill='%23c9ff48'/%3E%3Ccircle cx='24' cy='25' r='9' fill='%2320a894'/%3E%3C/svg%3E">
+  <title>AI Portfolio Intelligence</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #001d1b;
+      --ink: #e8f4ef;
+      --muted: rgba(205, 229, 220, .53);
+      --line: rgba(137, 221, 187, .14);
+      --line-strong: rgba(171, 245, 205, .22);
+      --glass: rgba(3, 43, 39, .67);
+      --glass-deep: rgba(0, 25, 23, .82);
+      --acid: #c9ff48;
+      --acid-soft: #aeea3e;
+      --ease: cubic-bezier(.2, 0, 0, 1);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background:
+        radial-gradient(60% 55% at 50% 46%, rgba(12, 80, 68, .22), transparent 68%),
+        linear-gradient(180deg, #002420 0%, var(--bg) 54%, #001816 100%);
+      color: var(--ink);
+      font-family: "Avenir Next", "Segoe UI Variable", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .22;
+      background-image:
+        linear-gradient(rgba(175, 255, 219, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(175, 255, 219, .035) 1px, transparent 1px);
+      background-size: 64px 64px;
+      -webkit-mask-image: radial-gradient(circle at 50% 48%, #000, transparent 72%);
+      mask-image: radial-gradient(circle at 50% 48%, #000, transparent 72%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: radial-gradient(circle at 50% 50%, transparent 52%, rgba(0, 9, 9, .38) 100%);
+    }
+
+    .stage {
+      position: relative;
+      z-index: 1;
+      min-height: 100svh;
+      display: grid;
+      place-items: center;
+      padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+               max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    }
+
+    .module {
+      width: min(960px, calc(100vw - 32px));
+    }
+
+    .shell {
+      position: relative;
+      isolation: isolate;
+      padding: 6px;
+      border-radius: 32px;
+      background:
+        linear-gradient(145deg, rgba(155, 255, 215, .055), transparent 46%),
+        rgba(2, 34, 31, .48);
+      border: 1px solid rgba(149, 238, 202, .085);
+      box-shadow:
+        0 28px 64px rgba(0, 10, 9, .31),
+        0 8px 22px rgba(0, 18, 16, .32),
+        inset 0 1px 0 rgba(218, 255, 240, .045);
+      -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+    }
+
+    .shell::before {
+      content: "";
+      position: absolute;
+      left: 12%;
+      right: 8%;
+      bottom: -22px;
+      height: 34px;
+      z-index: 0;
+      pointer-events: none;
+      border-radius: 50%;
+      opacity: .28;
+      background:
+        radial-gradient(ellipse at 72% 20%, rgba(192, 255, 66, .38), transparent 35%),
+        radial-gradient(ellipse at 44% 30%, rgba(20, 153, 125, .3), transparent 65%);
+      filter: blur(16px);
+      will-change: transform, opacity;
+      animation: reflectedGlow 5s ease-in-out infinite;
+    }
+
+    .composer {
+      position: relative;
+      z-index: 1;
+      height: 100px;
+      display: grid;
+      grid-template-columns: 66px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 14px;
+      padding: 0 16px 0 14px;
+      border-radius: 26px;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        linear-gradient(115deg, rgba(17, 80, 68, .16), transparent 46%),
+        rgba(0, 26, 24, .88);
+      border: 1px solid rgba(134, 226, 188, .13);
+      box-shadow:
+        inset 0 1px 0 rgba(223, 255, 242, .045),
+        inset 0 -16px 30px rgba(0, 10, 9, .2),
+        0 12px 28px rgba(0, 13, 12, .2);
+      transition-property: background-color, border-color, box-shadow;
+      transition-duration: 220ms;
+      transition-timing-function: var(--ease);
+    }
+
+    .composer:focus-within {
+      border-color: rgba(164, 235, 203, .19);
+      box-shadow:
+        inset 0 1px 0 rgba(223, 255, 242, .06),
+        inset 0 -16px 30px rgba(0, 10, 9, .18),
+        0 14px 32px rgba(0, 13, 12, .24);
+    }
+
+    .composer::before {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      z-index: 0;
+      border-radius: 24px;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(122, 225, 182, .022), transparent 35%),
+        radial-gradient(ellipse 55% 42% at 68% 108%, rgba(169, 242, 67, .055), transparent 70%);
+    }
+
+    .composer::after {
+      content: "";
+      position: absolute;
+      left: 30%;
+      bottom: -21px;
+      width: 50%;
+      height: 42px;
+      z-index: 0;
+      pointer-events: none;
+      border-radius: 50%;
+      opacity: .52;
+      background:
+        radial-gradient(ellipse at 74% 18%, rgba(215, 255, 84, .58), transparent 27%),
+        radial-gradient(ellipse at 47% 28%, rgba(20, 174, 139, .36), transparent 66%);
+      filter: blur(10px);
+      will-change: transform, opacity;
+      animation: internalCaustic 5s ease-in-out infinite;
+    }
+
+    .edge-light {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      width: 100%;
+      height: 100%;
+      display: block;
+      pointer-events: none;
+    }
+
+    @keyframes internalCaustic {
+      0%, 100% { opacity: .44; transform: translateX(-7%) scaleX(.94); }
+      50% { opacity: .62; transform: translateX(7%) scaleX(1.06); }
+    }
+
+    @keyframes reflectedGlow {
+      0%, 100% { opacity: .2; transform: translateX(-5%) scaleX(.94); }
+      50% { opacity: .32; transform: translateX(5%) scaleX(1.06); }
+    }
+
+    .orb-wrap {
+      position: relative;
+      z-index: 1;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex: none;
+      filter: drop-shadow(0 8px 13px rgba(0, 9, 7, .3));
+      transition-property: transform, filter;
+      transition-duration: 220ms;
+      transition-timing-function: var(--ease);
+    }
+
+    .composer:focus-within .orb-wrap {
+      transform: scale(1.035);
+      filter: brightness(1.08) drop-shadow(0 8px 15px rgba(0, 9, 7, .35));
+    }
+
+    .composer.is-confirmed .orb-wrap {
+      animation: confirmPulse 420ms var(--ease);
+    }
+
+    @keyframes confirmPulse {
+      0%, 100% { transform: scale(1.035); filter: brightness(1.08); }
+      45% { transform: scale(1.08); filter: brightness(1.24); }
+    }
+
+    #orb {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+
+    .orb-fallback {
+      display: none;
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background:
+        radial-gradient(circle at 31% 28%, rgba(232, 255, 154, .85), transparent 16%),
+        radial-gradient(circle at 68% 62%, #c9ff48 0 22%, transparent 46%),
+        radial-gradient(circle at 30% 70%, #20a894 0 20%, transparent 48%),
+        #063d37;
+      box-shadow: inset 4px 5px 10px rgba(226, 255, 205, .16),
+                  inset -5px -7px 12px rgba(0, 16, 15, .42);
+    }
+
+    .orb-wrap.is-fallback #orb { display: none; }
+    .orb-wrap.is-fallback .orb-fallback { display: block; }
+
+    .input-area {
+      min-width: 0;
+      position: relative;
+      z-index: 1;
+      align-items: center;
+      display: flex;
+      height: 64px;
+    }
+
+    .prompt-input {
+      appearance: none;
+      width: 100%;
+      height: 60px;
+      margin: 0;
+      padding: 12px 52px 8px 0;
+      resize: none;
+      overflow-y: auto;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: rgba(238, 249, 245, .93);
+      caret-color: var(--acid);
+      font: inherit;
+      font-size: clamp(16px, 1.85vw, 19px);
+      font-weight: 470;
+      line-height: 1.42;
+      letter-spacing: -.012em;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(186, 244, 217, .18) transparent;
+    }
+
+    .prompt-input::placeholder {
+      color: rgba(200, 225, 217, .43);
+      opacity: 1;
+    }
+
+    .prompt-input::selection {
+      color: #071c17;
+      background: rgba(201, 255, 72, .82);
+    }
+
+    .character-count {
+      position: absolute;
+      right: 0;
+      bottom: 6px;
+      color: rgba(193, 225, 213, .3);
+      font-size: 10px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: .04em;
+      opacity: 0;
+      transform: translateY(2px);
+      transition-property: opacity, transform, color;
+      transition-duration: 180ms;
+      transition-timing-function: var(--ease);
+    }
+
+    .input-area:focus-within .character-count,
+    .input-area.has-value .character-count {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .character-count.is-near-limit {
+      color: rgba(222, 255, 128, .74);
+    }
+
+    .actions {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-button {
+      appearance: none;
+      -webkit-tap-highlight-color: transparent;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 50%;
+      cursor: pointer;
+      transition-property: transform, color, background-color, border-color, box-shadow, opacity;
+      transition-duration: 180ms;
+      transition-timing-function: var(--ease);
+    }
+
+    .action-button:focus-visible {
+      outline: 2px solid rgba(213, 255, 106, .9);
+      outline-offset: 3px;
+    }
+
+    .action-button:active { transform: scale(.96); }
+
+    .action-button svg {
+      width: 18px;
+      height: 18px;
+      overflow: visible;
+    }
+
+    .mic-button {
+      color: rgba(216, 239, 230, .65);
+      background: rgba(54, 113, 95, .1);
+      border: 1px solid rgba(157, 224, 197, .14);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .035),
+        0 5px 14px rgba(0, 13, 11, .12);
+    }
+
+    .mic-button:hover,
+    .mic-button[aria-pressed="true"] {
+      color: rgba(237, 251, 245, .94);
+      background: rgba(83, 149, 125, .17);
+      border-color: rgba(183, 243, 216, .24);
+    }
+
+    .mic-button[aria-pressed="true"] {
+      box-shadow:
+        0 0 0 4px rgba(105, 226, 178, .06),
+        0 0 18px rgba(84, 218, 160, .13),
+        inset 0 1px 0 rgba(255, 255, 255, .06);
+    }
+
+    .send-button {
+      color: #0a261d;
+      background: linear-gradient(145deg, #dcff72, #bdf43e);
+      border: 1px solid rgba(236, 255, 185, .62);
+      box-shadow:
+        0 7px 17px rgba(128, 173, 20, .17),
+        inset 0 1px 0 rgba(255, 255, 255, .5),
+        inset 0 -2px 4px rgba(76, 106, 8, .14);
+    }
+
+    .send-button:hover {
+      background: linear-gradient(145deg, #e3ff86, #c8fa4d);
+      box-shadow:
+        0 9px 21px rgba(145, 193, 24, .23),
+        inset 0 1px 0 rgba(255, 255, 255, .58);
+    }
+
+    .send-button svg { transform: translateX(1px); }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    @media (max-width: 640px) {
+      .shell {
+        padding: 6px;
+        border-radius: 30px;
+      }
+
+      .composer {
+        height: 96px;
+        grid-template-columns: 50px minmax(0, 1fr) auto;
+        gap: 9px;
+        padding: 0 12px 0 10px;
+        border-radius: 24px;
+      }
+
+      .orb-wrap {
+        width: 48px;
+        height: 48px;
+      }
+
+      .input-area { height: 76px; }
+
+      .prompt-input {
+        height: 72px;
+        padding: 7px 0 5px;
+        font-size: clamp(14px, 4vw, 17px);
+        line-height: 1.38;
+      }
+
+      .character-count { display: none; }
+
+      .actions { gap: 6px; }
+
+      .action-button {
+        width: 40px;
+        height: 40px;
+      }
+    }
+
+    @media (max-width: 390px) {
+      .composer {
+        grid-template-columns: 44px minmax(0, 1fr) auto;
+        gap: 7px;
+        padding: 0 9px;
+      }
+
+      .orb-wrap {
+        width: 44px;
+        height: 44px;
+      }
+
+      .prompt-input { padding-right: 0; }
+    }
+
+    @media (max-width: 350px) {
+      .composer {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+        gap: 5px;
+        padding-inline: 7px;
+      }
+
+      .orb-wrap {
+        width: 40px;
+        height: 40px;
+      }
+
+      .actions { gap: 4px; }
+
+      .prompt-input {
+        padding-block: 4px;
+        font-size: 13px;
+        line-height: 1.3;
+      }
+    }
+
+    @media (max-height: 600px) {
+      .stage { place-items: start center; }
+      .module { margin-block: 16px; }
+    }
+
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="module" aria-label="AI prompt input">
+      <div class="shell">
+        <div class="composer">
+          <canvas class="edge-light" id="edgeCanvas" aria-hidden="true"></canvas>
+
+          <div class="orb-wrap" id="orbWrap" aria-hidden="true">
+            <canvas id="orb"></canvas>
+            <div class="orb-fallback"></div>
+          </div>
+
+          <div class="input-area" id="inputArea">
+            <label class="sr-only" for="promptInput">Ask the AI anything</label>
+            <textarea
+              class="prompt-input"
+              id="promptInput"
+              aria-describedby="characterCount inputStatus"
+              rows="2"
+              maxlength="280"
+              placeholder="Ask anything..."
+              autocomplete="off"
+              spellcheck="true"
+            ></textarea>
+            <output class="character-count" id="characterCount" for="promptInput">0 / 280</output>
+            <span class="sr-only" id="inputStatus" aria-live="polite"></span>
+          </div>
+
+          <div class="actions">
+            <button
+              class="action-button mic-button"
+              id="micButton"
+              type="button"
+              aria-label="Use voice input"
+              aria-pressed="false"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="9" y="3.5" width="6" height="10.5" rx="3" stroke="currentColor" stroke-width="1.55"/>
+                <path d="M6.75 11.5v.25a5.25 5.25 0 0 0 10.5 0v-.25M12 17v3.25M9.5 20.25h5" stroke="currentColor" stroke-width="1.55" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <button
+              class="action-button send-button"
+              id="sendButton"
+              type="button"
+              aria-label="Send prompt"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5.5 12.2 18.3 5.7l-3.9 12.6-2.55-4.65L5.5 12.2Z" fill="currentColor"/>
+                <path d="m11.85 13.65 6.45-7.95" stroke="#ddff7b" stroke-width="1.15" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const promptInput = document.getElementById("promptInput");
+      const inputArea = document.getElementById("inputArea");
+      const characterCount = document.getElementById("characterCount");
+      const inputStatus = document.getElementById("inputStatus");
+      const micButton = document.getElementById("micButton");
+      const sendButton = document.getElementById("sendButton");
+      const composerElement = promptInput.closest(".composer");
+      const maxCharacters = Number(promptInput.maxLength);
+
+      const syncInputState = () => {
+        const length = promptInput.value.length;
+        characterCount.textContent = `${length} / ${maxCharacters}`;
+        characterCount.classList.toggle("is-near-limit", length >= maxCharacters * 0.85);
+        inputArea.classList.toggle("has-value", length > 0);
+      };
+
+      const submitPrompt = () => {
+        const value = promptInput.value.trim();
+        if (!value) {
+          promptInput.focus();
+          inputStatus.textContent = "Type a prompt first";
+          return;
+        }
+
+        composerElement.classList.remove("is-confirmed");
+        requestAnimationFrame(() => composerElement.classList.add("is-confirmed"));
+        inputStatus.textContent = "Prompt ready";
+        composerElement.dispatchEvent(new CustomEvent("promptsubmit", {
+          detail: { value }
+        }));
+      };
+
+      promptInput.addEventListener("input", syncInputState);
+      promptInput.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          promptInput.blur();
+          return;
+        }
+
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey &&
+          !event.isComposing &&
+          promptInput.value.trim()
+        ) {
+          event.preventDefault();
+          submitPrompt();
+        }
+      });
+
+      sendButton.addEventListener("click", submitPrompt);
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      let recognition = null;
+      let voiceBase = "";
+
+      const setListening = (active) => {
+        micButton.setAttribute("aria-pressed", String(active));
+        micButton.setAttribute("aria-label", active ? "Stop voice input" : "Use voice input");
+      };
+
+      if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = true;
+        recognition.lang = navigator.language || "en-US";
+
+        recognition.addEventListener("start", () => {
+          voiceBase = promptInput.value.trimEnd();
+          setListening(true);
+          inputStatus.textContent = "Listening";
+        });
+
+        recognition.addEventListener("result", (event) => {
+          let transcript = "";
+          for (let index = 0; index < event.results.length; index += 1) {
+            transcript += event.results[index][0].transcript;
+          }
+          const spacer = voiceBase && transcript ? " " : "";
+          promptInput.value = `${voiceBase}${spacer}${transcript}`.slice(0, maxCharacters);
+          syncInputState();
+        });
+
+        recognition.addEventListener("end", () => {
+          setListening(false);
+          inputStatus.textContent = promptInput.value ? "Voice input added" : "Voice input stopped";
+          promptInput.focus();
+        });
+
+        recognition.addEventListener("error", () => {
+          setListening(false);
+          inputStatus.textContent = "Voice input unavailable";
+        });
+      }
+
+      micButton.addEventListener("click", () => {
+        if (!recognition) {
+          inputStatus.textContent = "Voice input is not supported in this browser";
+          promptInput.focus();
+          return;
+        }
+
+        if (micButton.getAttribute("aria-pressed") === "true") {
+          recognition.stop();
+        } else {
+          recognition.start();
+        }
+      });
+
+      composerElement.addEventListener("animationend", (event) => {
+        if (event.animationName === "confirmPulse") {
+          composerElement.classList.remove("is-confirmed");
+        }
+      });
+
+      syncInputState();
+
+      const initEdgeTrail = () => {
+        const canvas = document.getElementById("edgeCanvas");
+        const composer = canvas.closest(".composer");
+        const gl = canvas.getContext("webgl2", {
+          alpha: true,
+          antialias: false,
+          depth: false,
+          stencil: false,
+          premultipliedAlpha: true,
+          powerPreference: "high-performance"
+        });
+
+        if (!gl) {
+          canvas.style.display = "none";
+          return;
+        }
+
+        const vertexSource = `#version 300 es
+          precision highp float;
+          const vec2 positions[3] = vec2[3](
+            vec2(-1.0, -1.0),
+            vec2( 3.0, -1.0),
+            vec2(-1.0,  3.0)
+          );
+          void main() {
+            gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+          }
+        `;
+
+        const fragmentSource = `#version 300 es
+          precision highp float;
+
+          uniform vec2 uResolution;
+          uniform float uTime;
+          uniform float uDpr;
+          uniform float uRadius;
+          out vec4 outColor;
+
+          #define PI 3.141592653589793
+          #define TAU 6.283185307179586
+
+          float roundedBoxSdf(vec2 p, vec2 b, float radius) {
+            vec2 q = abs(p) - b + radius;
+            return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+          }
+
+          float perimeterPosition(vec2 p, vec2 b, float radius) {
+            float hx = b.x - radius;
+            float hy = b.y - radius;
+            float topLength = 2.0 * hx;
+            float sideLength = 2.0 * hy;
+            float arcLength = 0.5 * PI * radius;
+            float s;
+
+            if (p.x > hx && p.y > hy) {
+              float angle = atan(p.y - hy, p.x - hx);
+              s = topLength + (0.5 * PI - angle) * radius;
+            } else if (p.x > hx && p.y < -hy) {
+              float angle = atan(p.y + hy, p.x - hx);
+              s = topLength + arcLength + sideLength + (-angle) * radius;
+            } else if (p.x < -hx && p.y < -hy) {
+              float angle = atan(p.y + hy, p.x + hx);
+              if (angle > 0.0) angle -= TAU;
+              s = topLength + arcLength + sideLength + arcLength + topLength
+                + (-0.5 * PI - angle) * radius;
+            } else if (p.x < -hx && p.y > hy) {
+              float angle = atan(p.y - hy, p.x + hx);
+              if (angle < 0.0) angle += TAU;
+              s = topLength + arcLength + sideLength + arcLength + topLength
+                + arcLength + sideLength + (PI - angle) * radius;
+            } else if (p.y >= hy) {
+              s = clamp(p.x, -hx, hx) + hx;
+            } else if (p.x >= hx) {
+              s = topLength + arcLength + hy - clamp(p.y, -hy, hy);
+            } else if (p.y <= -hy) {
+              s = topLength + arcLength + sideLength + arcLength
+                + hx - clamp(p.x, -hx, hx);
+            } else {
+              s = topLength + arcLength + sideLength + arcLength + topLength
+                + arcLength + clamp(p.y, -hy, hy) + hy;
+            }
+
+            float perimeter = 2.0 * topLength + 2.0 * sideLength + 4.0 * arcLength;
+            return fract(s / perimeter);
+          }
+
+          void main() {
+            vec2 p = gl_FragCoord.xy - 0.5 * uResolution;
+            vec2 bounds = 0.5 * uResolution - vec2(1.5 * uDpr);
+            float radius = min(uRadius, bounds.y - uDpr);
+            float d = roundedBoxSdf(p, bounds, radius);
+            float perimeterT = perimeterPosition(p, bounds, radius);
+
+            float phase = TAU * fract(uTime / 5.0);
+            float headT = fract(phase / TAU);
+            float behind = fract(headT - perimeterT);
+
+            float cutoff = 1.0 - smoothstep(0.19, 0.245, behind);
+            float trail = exp(-behind * 8.5) * cutoff;
+            float periodicEnergy = 0.94 + 0.06 * sin(
+              TAU * perimeterT * 9.0 + 2.0 * phase + 0.35 * sin(phase)
+            );
+            trail *= periodicEnergy;
+
+            float aa = max(fwidth(d), 0.75 * uDpr);
+            float core = 1.0 - smoothstep(0.55 * uDpr, 1.45 * uDpr + aa, abs(d));
+            float glow = exp(-abs(d) / (4.8 * uDpr));
+            float circularHeadDistance = abs(fract(perimeterT - headT + 0.5) - 0.5);
+            float head = exp(-pow(circularHeadDistance / 0.0075, 2.0));
+
+            vec3 tailColor = vec3(0.16, 0.68, 0.34);
+            vec3 headColor = vec3(0.82, 1.0, 0.24);
+            vec3 hotColor = vec3(0.97, 1.0, 0.62);
+            vec3 color = mix(tailColor, headColor, pow(clamp(trail, 0.0, 1.0), 0.55));
+            color = mix(color, hotColor, clamp(head * 1.2, 0.0, 1.0));
+
+            float beam = max(trail, head);
+            float intensity = beam * (1.08 * core + 0.34 * glow);
+            intensity += head * glow * 0.28;
+            float alpha = clamp(intensity, 0.0, 0.98);
+
+            outColor = vec4(color * alpha, alpha);
+          }
+        `;
+
+        const compile = (type, source) => {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            const error = gl.getShaderInfoLog(shader);
+            gl.deleteShader(shader);
+            throw new Error(error || "Edge shader compilation failed");
+          }
+          return shader;
+        };
+
+        try {
+          const program = gl.createProgram();
+          gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
+          gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
+          gl.linkProgram(program);
+
+          if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(program) || "Edge shader linking failed");
+          }
+
+          gl.useProgram(program);
+          gl.bindVertexArray(gl.createVertexArray());
+          const resolutionLocation = gl.getUniformLocation(program, "uResolution");
+          const timeLocation = gl.getUniformLocation(program, "uTime");
+          const dprLocation = gl.getUniformLocation(program, "uDpr");
+          const radiusLocation = gl.getUniformLocation(program, "uRadius");
+          let edgeFrame = 0;
+          let edgeEpoch = performance.now();
+          let edgeHiddenAt = 0;
+          let edgePaused = 0;
+          let currentDpr = 1;
+          let currentRadius = 26;
+
+          const resize = () => {
+            const rect = composer.getBoundingClientRect();
+            currentDpr = Math.min(window.devicePixelRatio || 1, 2);
+            currentRadius =
+              parseFloat(getComputedStyle(composer).borderTopLeftRadius) * currentDpr;
+            const width = Math.max(1, Math.round(rect.width * currentDpr));
+            const height = Math.max(1, Math.round(rect.height * currentDpr));
+            if (canvas.width !== width || canvas.height !== height) {
+              canvas.width = width;
+              canvas.height = height;
+              gl.viewport(0, 0, width, height);
+            }
+          };
+
+          const observer = new ResizeObserver(resize);
+          observer.observe(composer);
+          resize();
+
+          const render = (now) => {
+            if (document.hidden) return;
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            gl.uniform1f(timeLocation, (now - edgeEpoch - edgePaused) / 1000);
+            gl.uniform1f(dprLocation, currentDpr);
+            gl.uniform1f(radiusLocation, currentRadius);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            edgeFrame = requestAnimationFrame(render);
+          };
+
+          document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+              edgeHiddenAt = performance.now();
+              cancelAnimationFrame(edgeFrame);
+            } else {
+              edgePaused += performance.now() - edgeHiddenAt;
+              edgeFrame = requestAnimationFrame(render);
+            }
+          });
+
+          edgeFrame = requestAnimationFrame(render);
+        } catch (error) {
+          console.warn("WebGL edge fallback enabled:", error);
+          canvas.style.display = "none";
+        }
+      };
+
+      const initOrb = () => {
+        const canvas = document.getElementById("orb");
+        const wrap = document.getElementById("orbWrap");
+        const gl = canvas.getContext("webgl2", {
+          alpha: true,
+          antialias: false,
+          depth: false,
+          stencil: false,
+          premultipliedAlpha: true,
+          powerPreference: "high-performance"
+        });
+
+        if (!gl) {
+          wrap.classList.add("is-fallback");
+          return;
+        }
+
+        const vertexSource = `#version 300 es
+          precision highp float;
+          const vec2 positions[3] = vec2[3](
+            vec2(-1.0, -1.0),
+            vec2( 3.0, -1.0),
+            vec2(-1.0,  3.0)
+          );
+          void main() {
+            gl_Position = vec4(positions[gl_VertexID], 0.0, 1.0);
+          }
+        `;
+
+        const fragmentSource = `#version 300 es
+          precision highp float;
+
+          uniform vec2 uResolution;
+          uniform float uTime;
+          out vec4 outColor;
+
+          #define TAU 6.283185307179586
+
+          float metaball(vec2 p, vec2 c, float radius) {
+            vec2 delta = p - c;
+            return (radius * radius) / max(dot(delta, delta), 0.003);
+          }
+
+          vec2 rotate2d(vec2 p, float angle) {
+            float s = sin(angle);
+            float c = cos(angle);
+            return mat2(c, -s, s, c) * p;
+          }
+
+          void main() {
+            vec2 uv = (2.0 * gl_FragCoord.xy - uResolution.xy) / min(uResolution.x, uResolution.y);
+            float phase = TAU * fract(uTime / 5.0);
+            float radial = length(uv);
+
+            vec2 p = rotate2d(uv, 0.10 * sin(phase));
+            vec2 warp = vec2(
+              sin(2.15 * p.y + phase) + 0.55 * sin(3.2 * p.x - 2.0 * phase),
+              cos(2.05 * p.x - phase) + 0.50 * cos(3.0 * p.y + 2.0 * phase)
+            );
+            p += 0.095 * warp;
+
+            vec2 c1 = vec2(0.35 * cos(phase + 0.15), 0.27 * sin(phase + 0.15));
+            vec2 c2 = vec2(0.34 * cos(-phase + 2.45), 0.34 * sin(-phase + 2.45));
+            vec2 c3 = vec2(0.27 * cos(2.0 * phase + 4.20), 0.35 * sin(2.0 * phase + 4.20));
+            vec2 c4 = vec2(0.18 * cos(-2.0 * phase + 1.10), 0.16 * sin(-2.0 * phase + 1.10));
+
+            float f1 = metaball(p, c1, 0.31);
+            float f2 = metaball(p, c2, 0.29);
+            float f3 = metaball(p, c3, 0.24);
+            float f4 = metaball(p, c4, 0.20);
+            float field = f1 + f2 + f3 + f4;
+
+            float limeWeight = smoothstep(0.45, 1.35, f1 + f3 + 0.30 * f4);
+            float cyanWeight = smoothstep(0.28, 1.12, f2 + 0.25 * f3);
+            float folds = 0.5 + 0.5 * sin(5.2 * p.x - 4.4 * p.y + 0.7 * sin(phase));
+            folds *= 0.5 + 0.5 * sin(3.8 * p.y + 2.0 * phase);
+
+            vec3 deep = vec3(0.008, 0.115, 0.102);
+            vec3 teal = vec3(0.025, 0.55, 0.43);
+            vec3 cyan = vec3(0.07, 0.68, 0.68);
+            vec3 lime = vec3(0.78, 1.0, 0.22);
+            vec3 color = mix(deep, teal, smoothstep(0.34, 1.34, field));
+            color = mix(color, cyan, 0.40 * cyanWeight);
+            color = mix(color, lime, 0.82 * limeWeight);
+            color += 0.06 * folds * smoothstep(0.45, 1.5, field);
+
+            float innerShade = 1.0 - 0.19 * smoothstep(0.35, 1.0, radial);
+            color *= innerShade;
+
+            vec3 lightDir = normalize(vec3(-0.55, 0.68, 0.48));
+            vec3 normal = normalize(vec3(uv, sqrt(max(0.0, 1.0 - radial * radial))));
+            float specular = pow(max(dot(normal, lightDir), 0.0), 18.0);
+            float rim = pow(smoothstep(0.56, 0.98, radial), 2.2);
+            color += vec3(0.68, 0.96, 0.83) * specular * 0.45;
+            color += vec3(0.17, 0.51, 0.42) * rim * 0.22;
+
+            float aa = max(fwidth(radial), 0.006);
+            float alpha = 1.0 - smoothstep(0.965 - aa, 0.985 + aa, radial);
+            float edgeGlass = smoothstep(0.80, 0.95, radial) * (1.0 - smoothstep(0.95, 0.985, radial));
+            color += edgeGlass * vec3(0.26, 0.70, 0.55) * 0.18;
+
+            outColor = vec4(color * alpha, alpha);
+          }
+        `;
+
+        const compile = (type, source) => {
+          const shader = gl.createShader(type);
+          gl.shaderSource(shader, source);
+          gl.compileShader(shader);
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            const error = gl.getShaderInfoLog(shader);
+            gl.deleteShader(shader);
+            throw new Error(error || "Shader compilation failed");
+          }
+          return shader;
+        };
+
+        try {
+          const program = gl.createProgram();
+          gl.attachShader(program, compile(gl.VERTEX_SHADER, vertexSource));
+          gl.attachShader(program, compile(gl.FRAGMENT_SHADER, fragmentSource));
+          gl.linkProgram(program);
+
+          if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+            throw new Error(gl.getProgramInfoLog(program) || "Program linking failed");
+          }
+
+          gl.useProgram(program);
+          gl.bindVertexArray(gl.createVertexArray());
+          const resolutionLocation = gl.getUniformLocation(program, "uResolution");
+          const timeLocation = gl.getUniformLocation(program, "uTime");
+          let orbFrame = 0;
+          let orbEpoch = performance.now();
+          let orbHiddenAt = 0;
+          let orbPaused = 0;
+
+          const resize = () => {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            const width = Math.max(1, Math.round(rect.width * dpr));
+            const height = Math.max(1, Math.round(rect.height * dpr));
+            if (canvas.width !== width || canvas.height !== height) {
+              canvas.width = width;
+              canvas.height = height;
+              gl.viewport(0, 0, width, height);
+            }
+          };
+
+          const observer = new ResizeObserver(resize);
+          observer.observe(wrap);
+          resize();
+
+          const render = (now) => {
+            if (document.hidden) return;
+            resize();
+            gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+            gl.uniform1f(timeLocation, (now - orbEpoch - orbPaused) / 1000);
+            gl.clearColor(0, 0, 0, 0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+            gl.drawArrays(gl.TRIANGLES, 0, 3);
+            orbFrame = requestAnimationFrame(render);
+          };
+
+          document.addEventListener("visibilitychange", () => {
+            if (document.hidden) {
+              orbHiddenAt = performance.now();
+              cancelAnimationFrame(orbFrame);
+            } else {
+              orbPaused += performance.now() - orbHiddenAt;
+              orbFrame = requestAnimationFrame(render);
+            }
+          });
+
+          orbFrame = requestAnimationFrame(render);
+        } catch (error) {
+          console.warn("WebGL orb fallback enabled:", error);
+          wrap.classList.add("is-fallback");
+        }
+      };
+
+      initEdgeTrail();
+      initOrb();
+    })();
+  </script>
+</body>
+</html>

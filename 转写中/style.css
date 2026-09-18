@@ -1,0 +1,101 @@
+:root {
+  color-scheme: light;
+  --surface: #ffffff;
+  --text: #111111;
+  --green: #22c55e;
+  --green-highlight: #86efac;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  margin: 0;
+  min-width: 100%;
+  min-height: 100%;
+  background: var(--surface);
+}
+
+body {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+}
+
+.transcribing-status {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 338px;
+  height: 72px;
+  padding: 0 26px;
+  overflow: hidden;
+  color: var(--text);
+  background: var(--surface);
+  font-family: "PingFang SC", "苹方-简", "Microsoft YaHei", sans-serif;
+}
+
+.status-label {
+  font-size: 32px;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.pixel-icon {
+  position: relative;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  padding: 3px;
+  filter:
+    drop-shadow(0 0 5px rgba(34, 197, 94, 0.82))
+    drop-shadow(0 0 13px rgba(22, 163, 74, 0.45));
+}
+
+.pixel {
+  position: relative;
+  display: block;
+  float: left;
+  width: 10px;
+  height: 10px;
+  background: var(--green);
+  box-shadow: inset 0 0 4px var(--green-highlight);
+  opacity: var(--a0);
+  transform: scale(1);
+  animation: pixel-cycle 0.42s linear infinite;
+}
+
+.pixel--0 { --a0: .18; --a1: .36; --a2: .72; --a3: .76; --a4: .19; }
+.pixel--1 { --a0: .80; --a1: .75; --a2: .55; --a3: .27; --a4: .41; }
+.pixel--2 { --a0: .72; --a1: .26; --a2: .22; --a3: .51; --a4: .72; }
+.pixel--3 { --a0: .80; --a1: .88; --a2: .98; --a3: 1; --a4: .47; }
+.pixel--4 { --a0: 1; --a1: .83; --a2: .55; --a3: .55; --a4: .81; }
+.pixel--5 { --a0: .97; --a1: .70; --a2: .68; --a3: .82; --a4: .67; }
+.pixel--6 { --a0: 1; --a1: .95; --a2: .75; --a3: .71; --a4: .66; }
+.pixel--7 { --a0: .88; --a1: .56; --a2: .55; --a3: .78; --a4: .91; }
+.pixel--8 { --a0: 1; --a1: .94; --a2: .94; --a3: .73; --a4: .40; }
+
+.transcribing-status[data-paused="true"] .pixel {
+  animation-play-state: paused;
+}
+
+/* 从原视频 5–7 秒校正后的九格亮度曲线。 */
+@keyframes pixel-cycle {
+  0%, 100% { opacity: calc((var(--a0) - 0.2) * 1.25); }
+  20% { opacity: calc((var(--a1) - 0.2) * 1.25); }
+  40% { opacity: calc((var(--a2) - 0.2) * 1.25); }
+  60% { opacity: calc((var(--a3) - 0.2) * 1.25); }
+  80% { opacity: calc((var(--a4) - 0.2) * 1.25); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pixel { animation: none; opacity: 0; }
+  .pixel--1,
+  .pixel--3,
+  .pixel--4,
+  .pixel--5,
+  .pixel--6,
+  .pixel--7,
+  .pixel--8 { opacity: 1; }
+}

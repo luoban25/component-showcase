@@ -1,0 +1,379 @@
+<!doctype html>
+<!-- 未开源 · 私有作品：未经授权禁止复制、公开、分发或商用。 -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spectral Fiber Ribbon — GPU V4.2 Bottom Fill Bigger</title>
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;background:#000}
+body{display:grid;place-items:center;overflow:auto;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.stage{width:100%;min-height:100vh;display:grid;place-items:center;background:#000;padding:clamp(16px,4vh,48px) 0}
+.pillWrap{position:relative;display:grid;place-items:center;width:max-content}
+.pillGlow{
+  position:absolute;inset:-10% -12% -30% -12%;border-radius:999px;z-index:0;pointer-events:none;opacity:0;
+  background:radial-gradient(52% 44% at 50% 72%,rgba(120,170,255,.42),rgba(150,90,255,.20) 46%,rgba(0,0,0,0) 72%);
+  filter:blur(14px);
+}
+.pill{
+  position:relative;width:min(76vw,980px,calc(72vh*2.78));aspect-ratio:2.78/1;padding:0;border:0;border-radius:999px;
+  background:#020203;overflow:hidden;isolation:isolate;cursor:pointer;-webkit-tap-highlight-color:transparent;z-index:1;
+}
+.pill::after{
+  content:"";position:absolute;inset:0;z-index:5;border-radius:inherit;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(168,175,192,.28),inset 0 1px 0 rgba(255,255,255,.035),inset 0 -1px 0 rgba(255,255,255,.015);
+}
+#fx{position:absolute;inset:0;width:100%;height:100%;display:block;z-index:1}
+.vignette{
+  position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,.76) 0%,rgba(0,0,0,.18) 35%,rgba(0,0,0,0) 63%),
+             radial-gradient(115% 105% at 50% 55%,transparent 53%,rgba(0,0,0,.21) 100%);
+}
+.label{
+  position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:center;
+  gap:clamp(16px,2vw,28px);color:#fff;pointer-events:none;transform:translateY(-1%);letter-spacing:-.045em;
+  text-shadow:0 1px 0 rgba(0,0,0,.25)
+}
+.plus{width:clamp(38px,5.2vw,70px);height:clamp(38px,5.2vw,70px);position:relative;flex:0 0 auto}
+.plus::before,.plus::after{content:"";position:absolute;left:50%;top:50%;width:100%;height:clamp(5px,.6vw,9px);border-radius:999px;background:#fff;transform:translate(-50%,-50%)}
+.plus::after{transform:translate(-50%,-50%) rotate(90deg)}
+.text{font-size:clamp(54px,8vw,116px);line-height:.9;font-weight:440;white-space:nowrap}
+@media(max-width:700px){.pill{width:min(92vw,calc(68vh*2.78))}.text{font-size:clamp(38px,12vw,72px)}.label{gap:14px}.plus{width:38px;height:38px}}
+</style>
+</head>
+<body>
+<main class="stage">
+  <div class="pillWrap">
+    <div class="pillGlow" id="pillGlow"></div>
+    <button class="pill" id="pill" aria-label="Add new">
+      <canvas id="fx" aria-hidden="true"></canvas>
+      <div class="vignette"></div>
+      <div class="label"><span class="plus"></span><span class="text">Add new</span></div>
+    </button>
+  </div>
+</main>
+<script>
+(() => {
+'use strict';
+const canvas=document.getElementById('fx');
+const pill=document.getElementById('pill');
+const glow=document.getElementById('pillGlow');
+const gl=canvas.getContext('webgl2',{alpha:false,antialias:false,preserveDrawingBuffer:false});
+if(!gl){ document.body.innerHTML='<div style="color:white">This demo needs WebGL2.</div>'; return; }
+
+const VERT=`#version 300 es
+in vec2 aPos;
+out vec2 vUv;
+void main(){vUv=aPos*.5+.5;gl_Position=vec4(aPos,0.,1.);}`;
+
+const FRAG=`#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 fragColor;
+uniform float uTime;
+uniform float uHover;
+uniform vec3 uRand0;
+uniform vec3 uRand1;
+
+#define PI 3.141592653589793
+#define TAU 6.283185307179586
+
+float sat(float x){return clamp(x,0.,1.);} 
+float gauss(float x,float c,float w){float q=(x-c)/w;return exp(-q*q);} 
+float aaStep(float edge,float x){float fw=max(fwidth(x),0.00035);return 1.-smoothstep(edge-fw,edge+fw,x);} 
+
+// Top-origin master curve. The macro silhouette stays stable; only internal families breathe.
+float masterY(float x){
+  float bowl = .495 + .435*gauss(x,.505,.315);
+  bowl += .034*sin(x*PI*1.22+.35);
+  bowl -= .004*smoothstep(.72,1.,x);
+  return bowl;
+}
+float masterDY(float x){
+  float e=.0015;
+  return (masterY(min(1.,x+e))-masterY(max(0.,x-e)))/(2.*e);
+}
+
+vec3 screenBlend(vec3 base,vec3 layer,float a){
+  layer=clamp(layer,0.,1.);
+  return 1.-(1.-base)*(1.-layer*a);
+}
+
+vec3 warmPalette(float t){
+  vec3 white=vec3(1.00,.99,.90), yellow=vec3(1.00,.84,.05), orange=vec3(1.00,.28,.01);
+  vec3 red=vec3(1.00,.025,.11), mag=vec3(1.00,.00,.67), violet=vec3(.48,.12,1.);
+  vec3 c=mix(white,yellow,smoothstep(.00,.10,t));
+  c=mix(c,orange,smoothstep(.09,.26,t));
+  c=mix(c,red,smoothstep(.23,.43,t));
+  c=mix(c,mag,smoothstep(.40,.67,t));
+  c=mix(c,violet,smoothstep(.64,1.00,t));
+  return c;
+}
+vec3 centerPalette(float t){
+  vec3 red=vec3(1.,.03,.16), mag=vec3(1.,0.,.72), violet=vec3(.45,.14,1.), blue=vec3(.04,.18,1.), cyan=vec3(0.,.83,1.), white=vec3(.86,1.,1.);
+  vec3 c=mix(red,mag,smoothstep(.05,.24,t));
+  c=mix(c,violet,smoothstep(.20,.43,t));
+  c=mix(c,blue,smoothstep(.40,.66,t));
+  c=mix(c,cyan,smoothstep(.62,.85,t));
+  c=mix(c,white,smoothstep(.83,1.,t));
+  return c;
+}
+vec3 corePalette(float t){
+  vec3 warm=vec3(1.,.92,.52), white=vec3(1.), ice=vec3(.62,1.,1.), cyan=vec3(.04,.90,1.);
+  vec3 c=mix(warm,white,smoothstep(.02,.19,t));
+  c=mix(c,ice,smoothstep(.45,.70,t));
+  c=mix(c,cyan,smoothstep(.65,.88,t));
+  c=mix(c,white,smoothstep(.90,1.,t));
+  return c;
+}
+vec3 coolPalette(float t){
+  vec3 violet=vec3(.36,.10,1.), blue=vec3(.03,.20,1.), cyan=vec3(0.,.76,1.), ice=vec3(.25,1.,1.), white=vec3(1.);
+  vec3 c=mix(violet,blue,smoothstep(.04,.28,t));
+  c=mix(c,cyan,smoothstep(.25,.64,t));
+  c=mix(c,ice,smoothstep(.60,.86,t));
+  c=mix(c,white,smoothstep(.86,1.,t));
+  return c;
+}
+
+// Multi-scale fiber mask. Thick, medium and micro strands overlap instead of forming one uniform comb.
+float fibers(float q,float x,float phase,float density,float macroBias){
+  float drift = x - uTime*0.22;
+  float warp = .040*sin(drift*12.7+phase*1.7) + .020*sin(drift*27.0-phase*.9);
+  float qq=q+warp;
+  float u=qq*.5+.5;
+
+  float p1=abs(fract(u*(5.0+macroBias*2.0)+phase*.07+sin(drift*5.+phase)*.055)-.5);
+  float thick=aaStep(.17,p1);
+
+  float p2=abs(fract(u*(15.0+density*4.0)+phase*.13+sin(drift*10.5-phase)*.08)-.5);
+  float med=aaStep(.105,p2);
+
+  float p3=abs(fract(u*(40.0+density*18.0)+phase*.23+sin(drift*19.0+phase)*.11)-.5);
+  float micro=aaStep(.070,p3);
+
+  // Sparse broken accents: the gate can dip below the lower edge so strands occasionally break.
+  float gate=-.20+.42*sin(drift*(10.0+phase*2.0)+phase*4.0);
+  thick*=smoothstep(-.30,.55,gate+macroBias*.25);
+  med*=mix(.78,1.0,density);
+  micro*=mix(.42,1.0,density);
+
+  return max(thick*.96,max(med*.76,micro*.62));
+}
+
+struct Band { float a; float glow; vec3 color; };
+
+Band bandField(vec2 p,int id,float y,float norm,float env){
+  float x=p.x;
+
+  float t=uTime;
+  // V4.2 RANDOM INTERPOLATION: targets are time-only, so they are computed
+  // once per frame on the CPU and uploaded as uniforms, not per pixel.
+  float rAmp=uRand0.x;
+  float rFreq=uRand0.y;
+  float rSpeed=uRand0.z;
+  float rPhase=uRand1.x;
+  float rLift=uRand1.y;
+  float rGrad=uRand1.z;
+  float flowSpeed = mix(0.095,0.165,rSpeed);
+  float flowX = x - t*flowSpeed;
+  float waveFreq = mix(1.60,2.18,rFreq);
+  float waveAmp = mix(0.98,1.78,rAmp);
+  float phaseShift = rPhase*TAU;
+  float gradShift = mix(-0.17,0.17,rGrad);
+  float gradStretch = mix(0.88,1.38,rAmp);
+  float wWave = waveAmp*(
+      sin(flowX*TAU*waveFreq + t*0.68 + phaseShift)
+    + 0.48*sin(flowX*TAU*(waveFreq*2.03) - t*0.49 - phaseShift*0.31)
+  );
+  float offset=0.;
+  float width=.03;
+  float density=.6;
+  float phase=float(id)*1.731;
+  float strength=1.;
+  float colorT=x;
+  float macroBias=.5;
+  vec3 col=vec3(1.);
+
+  if(id==0){ // warm left — broad, fused on the far left, splits toward center
+    offset=(-.082 + .012*sin(t*.42+flowX*6.2))*gauss(x,.28,.58) - .025*gauss(x,.72,.30);
+    offset += .012*wWave*gauss(x,.45,.38);
+    width=.026 + .235*gauss(x,.045,.235) + .072*gauss(x,.30,.26) + .028*gauss(x,.76,.20);
+    width*=1.32*(.90+.18*sin(flowX*10.0+t*.38));
+    density=mix(.24,.88,smoothstep(.16,.48,x))*(1.-.35*smoothstep(.70,1.,x));
+    colorT=sat(x*(1.42*gradStretch)+0.02+gradShift*0.55);
+    col=warmPalette(colorT);
+    macroBias=.92;
+    strength=1.08;
+  } else if(id==1){ // center crossing ribbon — narrow, highly filamented
+    offset=(-.006 + .050*sin((flowX-.28)*5.2+t*.50))*gauss(x,.54,.40);
+    offset += .024*wWave*gauss(x,.56,.28);
+    offset += .025*gauss(x,.68,.18);
+    width=.022 + .056*gauss(x,.38,.31) + .034*gauss(x,.72,.28);
+    width*=1.22*(.76+.50*sin(flowX*15.0-t*.34+1.2));
+    density=.72+.28*gauss(x,.54,.28);
+    colorT=sat(x*(0.88*gradStretch)+0.08+gradShift*0.75+.075*sin(flowX*6.0-t*.16+phaseShift*0.2));
+    col=centerPalette(colorT);
+    macroBias=.25;
+    strength=.98;
+  } else if(id==2){ // white / cyan hot core — thick ends, pinched center
+    offset=(.035 + .018*sin(t*.34+flowX*5.0))*gauss(x,.48,.80) + .024*gauss(x,.86,.24);
+    offset += .013*wWave*gauss(x,.82,.26);
+    width=.018 + .145*gauss(x,.040,.22) + .020*gauss(x,.47,.24) + .165*gauss(x,.965,.22);
+    width*=1.34*(.96+.18*sin(flowX*8.6+t*.28+2.0));
+    density=.18 + .38*gauss(x,.52,.22) + .15*gauss(x,.88,.20);
+    colorT=sat(x*(0.94*gradStretch)+0.02+gradShift*0.45);
+    col=corePalette(colorT);
+    macroBias=1.15;
+    strength=1.17;
+  } else { // blue fan — opens strongly at right, fine parallel fibers
+    offset=(.082 + .020*sin(t*.58+flowX*5.4))*smoothstep(.42,1.,x) - .010*gauss(x,.54,.25);
+    offset += .022*wWave*smoothstep(.55,1.,x);
+    width=.016 + .030*gauss(x,.58,.27) + .245*gauss(x,.988,.24);
+    width*=1.34*(.88+.28*sin(flowX*11.8-t*.40+3.1));
+    density=.24 + .76*smoothstep(.60,.90,x);
+    colorT=sat(.14 + x*(0.92*gradStretch) + gradShift*0.65);
+    col=coolPalette(colorT);
+    macroBias=.48;
+    strength=1.02;
+  }
+
+  // Families gently change crossing order by moving their centerlines, not by random noise.
+  // While the ambient loop is off, the ribbon drains below the pill and rises back on cue.
+  float localY=y+offset + mix(-0.016,0.020,rLift)*gauss(x,.52,.46) + 0.036*gauss(x,.50,.30) + (1.-env)*0.20;
+  float d=(p.y-localY)/norm;
+  float q=d/max(width,.004);
+  float body=1.-smoothstep(.88,1.06,abs(q));
+  float f=fibers(q,x,phase+t*.22,density,macroBias);
+
+  // Broad strands coexist with thin fibers; central core remains more fused.
+  float broad = (1.-smoothstep(.32,.88,abs(q))) * (.13 + .22*macroBias);
+  if(id==2) broad*=2.05;
+  if(id==0) broad*=mix(1.95,.56,smoothstep(.08,.42,x));
+  if(id==3) broad*=mix(.80,2.05,smoothstep(.70,1.0,x));
+  float sharp=body*max(f,broad);
+
+  // Analytic glow: no expensive canvas blur, and it stays inside the pill.
+  float g1=(1.-smoothstep(.88,1.65,abs(q)))*.22;
+  float g2=(1.-smoothstep(.9,2.55,abs(q)))*.065;
+  float glow=(g1+g2)*strength;
+
+  // Keep white from washing every crossing gray.
+  if(id!=2) col=mix(col,normalize(max(col,vec3(.001))) * max(max(col.r,col.g),col.b),.12);
+  return Band(sharp*strength,glow,col);
+}
+
+void main(){
+  // uv transformed to top-origin and aspect-corrected through width envelope, no expensive geometry.
+  vec2 p=vec2(vUv.x,1.-vUv.y);
+  float y=masterY(p.x);
+  float slope=masterDY(p.x);
+  float norm=sqrt(1.+slope*slope);
+  // Ambient 5s loop, matching the reference: on ~1s, drain out, off ~1.9s, rise back in.
+  float cycle=mod(uTime,5.0);
+  float env=max(1.-smoothstep(1.05,1.18,cycle),smoothstep(3.02,3.16,cycle));
+  vec3 color=vec3(.002,.002,.003);
+
+  // fixed back-to-front family order; their centerline crossings create the woven look.
+  Band A=bandField(p,0,y,norm,env);
+  Band D=bandField(p,3,y,norm,env);
+  Band B=bandField(p,1,y,norm,env);
+  Band C=bandField(p,2,y,norm,env);
+
+  color=screenBlend(color,A.color,A.a*.88);
+  color=screenBlend(color,D.color,D.a*.82);
+  color=screenBlend(color,B.color,B.a*.93);
+  color=screenBlend(color,C.color,C.a*.96);
+
+  // Glow is intentionally restrained and colored, not a gray additive wash.
+  vec3 glowColor = A.color*A.glow*.30 + B.color*B.glow*.25 + C.color*C.glow*.36 + D.color*D.glow*.32;
+  color += glowColor;
+
+  // Ambient loop drives the show; hovering pins it fully on.
+  float reveal=max(env,smoothstep(0.02,0.98,uHover));
+  color*=reveal;
+
+  // Preserve deep blacks and punch saturation back after overlaps.
+  float mx=max(max(color.r,color.g),color.b);
+  float mn=min(min(color.r,color.g),color.b);
+  color=mix(vec3(dot(color,vec3(.2126,.7152,.0722))),color,1.12);
+  color*=1.03;
+  color=pow(max(color,0.),vec3(.92));
+  color=clamp(color,0.,1.);
+
+  fragColor=vec4(color,1.);
+}`;
+
+function compile(type,src){
+  const s=gl.createShader(type); gl.shaderSource(s,src); gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+let program;
+try{
+  program=gl.createProgram();
+  gl.attachShader(program,compile(gl.VERTEX_SHADER,VERT));
+  gl.attachShader(program,compile(gl.FRAGMENT_SHADER,FRAG));
+  gl.linkProgram(program);
+  if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(program));
+}catch(err){
+  console.error(err);
+  document.body.innerHTML='<div style="color:white">This demo needs WebGL2.</div>';
+  return;
+}
+gl.useProgram(program);
+
+const quad=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,quad); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]),gl.STATIC_DRAW);
+const loc=gl.getAttribLocation(program,'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+const uTime=gl.getUniformLocation(program,'uTime');
+const uHover=gl.getUniformLocation(program,'uHover');
+const uRand0=gl.getUniformLocation(program,'uRand0');
+const uRand1=gl.getUniformLocation(program,'uRand1');
+
+let W=1,H=1,target=0,start=performance.now();
+let glowOpacity='-1';
+const reduceMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let hover=reduceMotion?target:0;
+const scheduleFrame=()=>{ if(reduceMotion) requestAnimationFrame(frame); };
+function sstep(a,b,x){ const q=Math.min(1,Math.max(0,(x-a)/(b-a))); return q*q*(3-2*q); }
+function hash11(p){ const s=Math.sin(p*127.1+311.7)*43758.5453123; return s-Math.floor(s); }
+function randLerp(time,period,seed){
+  const k=time/period, i=Math.floor(k), f=k-i, q=f*f*(3-2*f);
+  return hash11(i+seed)+(hash11(i+1+seed)-hash11(i+seed))*q;
+}
+pill.addEventListener('pointerenter',()=>{target=1; scheduleFrame();});
+pill.addEventListener('pointerleave',()=>{target=0; scheduleFrame();});
+pill.addEventListener('focus',()=>{target=1; scheduleFrame();});
+pill.addEventListener('blur',()=>{target=0; scheduleFrame();});
+function resize(){
+  const r=pill.getBoundingClientRect(); W=Math.max(1,r.width); H=Math.max(1,r.height);
+  const raw=Math.min(devicePixelRatio||1,2.25);
+  const scale=Math.min(raw,Math.sqrt(1800000/(W*H)));
+  const cw=Math.max(1,Math.round(W*scale)), ch=Math.max(1,Math.round(H*scale));
+  if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;gl.viewport(0,0,cw,ch);}
+}
+new ResizeObserver(()=>{ resize(); if(reduceMotion) scheduleFrame(); }).observe(pill);
+resize();
+
+function frame(now){
+  hover+=(target-hover)*(target>hover?.09:.06);
+  const t=reduceMotion?1.0:(now-start)/1000;
+  const cycle=t%5;
+  const env=Math.max(1-sstep(1.05,1.18,cycle),sstep(3.02,3.16,cycle));
+  const reveal=Math.max(env,sstep(0.02,0.98,hover));
+  const o=(0.85*reveal).toFixed(3);
+  if(o!==glowOpacity){ glow.style.opacity=o; glowOpacity=o; }
+  gl.uniform1f(uTime,t);
+  gl.uniform1f(uHover,hover);
+  gl.uniform3f(uRand0,randLerp(t,4.8,11.0),randLerp(t,5.8,23.0),randLerp(t,6.4,37.0));
+  gl.uniform3f(uRand1,randLerp(t,5.1,53.0),randLerp(t,7.2,71.0),randLerp(t,5.6,89.0));
+  // Skip the full-screen pass while the loop is fully dark (~38% of the cycle).
+  if(reveal>0.004||hover>0.004) gl.drawArrays(gl.TRIANGLES,0,6);
+  if(!reduceMotion) requestAnimationFrame(frame);
+}
+if(reduceMotion) frame(performance.now()); else requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

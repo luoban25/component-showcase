@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fluid Progress Card · 工程版</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="assets/css/fluid-progress.css?v=1.3.1" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px 22px;
+      background: radial-gradient(circle at 50% 20%, #fff 0%, #f3f4f7 44%, #e8eaf0 100%);
+      color: #171820;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .page { width: min(940px, 100%); margin: 0 auto; }
+    .demo-shell { width: 100%; }
+    #heroCard { max-height: 238px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+    button {
+      border: 0; border-radius: 999px; padding: 10px 14px; background: #fff; color: #292b35;
+      box-shadow: 0 6px 18px rgba(30,35,50,.08); cursor: pointer; font-weight: 700; transition: transform .18s ease, background .18s ease, color .18s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    button[aria-pressed="true"] { background: #171820; color: #fff; }
+    button:focus-visible { outline: 3px solid #4aabff; outline-offset: 3px; }
+    .api { margin-top: 28px; display: grid; gap: 14px; }
+    .api-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+    input[type="range"] { width: 100%; }
+    .value { min-width: 52px; text-align: right; font-weight: 800; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="demo-shell">
+      <div id="heroCard"
+        data-fluid-progress
+        data-theme="coral-magenta"
+        data-progress="64"
+        data-title="NEURAL SYNC"
+        data-subtitle="ADAPTIVE INFERENCE STREAM"
+        data-aria-label="Fluid progress demonstration"
+        data-stir="0.68"
+        data-delay="0.55"
+        data-echo="0.42"
+        data-spark="0.76"
+        data-draggable="true"></div>
+
+      <div class="toolbar" id="themeButtons"></div>
+
+      <div class="api">
+        <div class="api-row">
+          <label class="visually-hidden" for="progressRange">设置进度</label>
+          <input id="progressRange" type="range" min="0" max="100" value="64" />
+          <output class="value" for="progressRange"><span id="progressReadout">64</span>%</output>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/fluid-progress-themes.js?v=1.3.1"></script>
+  <script src="assets/js/fluid-progress.js?v=1.3.1"></script>
+  <script>
+    window.addEventListener("DOMContentLoaded", function () {
+      var card = FluidProgress.get("#heroCard");
+      var cardElement = document.getElementById("heroCard");
+      var buttons = document.getElementById("themeButtons");
+      Object.keys(FluidProgress.themes).forEach(function (key) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.textContent = FluidProgress.themes[key].label;
+        button.setAttribute("aria-pressed", String(key === cardElement.getAttribute("data-theme")));
+        button.addEventListener("click", function () {
+          card.setTheme(key);
+          Array.prototype.forEach.call(buttons.children, function (item) {
+            item.setAttribute("aria-pressed", String(item === button));
+          });
+        });
+        buttons.appendChild(button);
+      });
+
+      var range = document.getElementById("progressRange");
+      var readout = document.getElementById("progressReadout");
+      range.addEventListener("input", function () {
+        readout.textContent = range.value;
+        card.setProgress(Number(range.value));
+      });
+      cardElement.addEventListener("fluidprogressinput", function (event) {
+        var value = String(Math.round(event.detail.value));
+        range.value = value;
+        readout.textContent = value;
+      });
+    });
+  </script>
+</body>
+</html>

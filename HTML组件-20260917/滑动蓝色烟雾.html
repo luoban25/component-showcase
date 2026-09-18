@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Laser 初始效果 - 白底简化预览</title>
+<style>
+  html,body{height:100%;margin:0;background:#ffffff;overflow:hidden}
+  .stage{position:relative;width:100vw;height:100vh;background:#ffffff;overflow:hidden}
+  #content,#fx{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #fx{pointer-events:none}
+</style>
+</head>
+<body>
+<div class="stage">
+  <canvas id="content"></canvas>
+  <canvas id="fx"></canvas>
+</div>
+<script>
+const DEFAULTS = {
+  speed: 0.3,
+  offset: 140,
+  color: [0.05, 0.35, 1],
+  thickness: 6,
+  core: 1,
+  radius: 20,
+  glow: 2,
+  wave: 10,
+  width: 0.55,
+  flicker: 0.2,
+  reveal: 400,
+  heat: 1.5,
+  shimmer: 12,
+  sparkle: 0.25,
+  reactivity: 1,
+};
+
+const content = document.getElementById('content');
+const fx = document.getElementById('fx');
+const c2d = content.getContext('2d');
+const gl = fx.getContext('webgl2',{alpha:true,depth:false,stencil:false,antialias:false,premultipliedAlpha:true});
+if(!gl){document.body.innerHTML='<div style="padding:30px;font-family:Arial,sans-serif">当前浏览器不支持 WebGL2。</div>';throw new Error('WebGL2 unavailable');}
+
+const VERT=`#version 300 es
+precision highp float;
+layout(location = 0) in vec2 aPos;
+out vec2 vUv;
+void main () {
+  vUv = aPos * 0.5 + 0.5;
+  gl_Position = vec4(aPos, 0.0, 1.0);
+}`;
+
+const FRAG=`#version 300 es
+precision highp float;
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uContent;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uBeamY;
+uniform float uWaveAmp;
+uniform float uBeamCX;
+uniform float uBeamHalfW;
+uniform float uHalfCore;
+uniform float uCore;
+uniform float uRadius;
+uniform float uGlow;
+uniform vec3 uColor;
+uniform float uBright;
+uniform float uRevealH;
+uniform float uHeat;
+uniform float uShimmer;
+uniform float uSparkle;
+uniform vec3 uBezel;
+uniform float uMaxX;
+uniform float uHasContent;
+
+float hash (vec2 v) { return fract(sin(dot(v, vec2(89.44, 19.36))) * 22189.22); }
+float iHash (vec2 v, vec2 r) {
+  float h00 = hash(floor(v * r + vec2(0.0, 0.0)) / r);
+  float h10 = hash(floor(v * r + vec2(1.0, 0.0)) / r);
+  float h01 = hash(floor(v * r + vec2(0.0, 1.0)) / r);
+  float h11 = hash(floor(v * r + vec2(1.0, 1.0)) / r);
+  vec2 ip = smoothstep(vec2(0.0), vec2(1.0), mod(v * r, 1.0));
+  return (h00 * (1.0 - ip.x) + h10 * ip.x) * (1.0 - ip.y)
+    + (h01 * (1.0 - ip.x) + h11 * ip.x) * ip.y;
+}
+float noise (vec2 v) {
+  float sum = 0.0; float s = 2.0;
+  for (int i = 1; i < 7; i++) { sum += iHash(v + vec2(i), vec2(2.0 * s)) / s; s *= 2.0; }
+  return sum;
+}
+vec3 permute (vec3 x) { return mod(((x * 34.0) + 1.0) * x, 289.0); }
+float snoise (vec2 v) {
+  const vec4 C = vec4(0.211324865405187, 0.366025403784439,-0.577350269189626, 0.024390243902439);
+  vec2 i = floor(v + dot(v, C.yy));
+  vec2 x0 = v - i + dot(i, C.xx);
+  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod(i, 289.0);
+  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+  vec3 m = max(0.5 - vec3(dot(x0,x0),dot(x12.xy,x12.xy),dot(x12.zw,x12.zw)),0.0);
+  m=m*m; m=m*m;
+  vec3 x = 2.0 * fract(p * C.www) - 1.0;
+  vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5); vec3 a0 = x - ox;
+  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+  vec3 g; g.x = a0.x*x0.x + h.x*x0.y; g.yz = a0.yz*x12.xz + h.yz*x12.yw;
+  return 130.0 * dot(m,g);
+}
+float fbm (vec2 p) {
+  float v=0.0; float a=0.5;
+  for(int i=0;i<3;i++){ v += a*snoise(p); p = mat2(1.6,1.2,-1.2,1.6)*p + 11.7; a*=0.5; }
+  return v*0.5+0.5;
+}
+float smokeField (vec2 p, float t) {
+  vec2 rise=vec2(t*0.04,-t*0.35);
+  vec2 q=vec2(fbm(p+rise),fbm(p+rise*0.85+vec2(5.2,1.3)));
+  return fbm(p+0.55*q+rise);
+}
+vec4 page (vec2 p) {
+  p.x=clamp(p.x,0.0005,uMaxX-0.0005);
+  p.y=clamp(p.y,0.0005,0.9995);
+  return texture(uContent,vec2(p.x,1.0-p.y));
+}
+void main () {
+  vec2 uv=vUv;
+  if(uv.x>uMaxX){outColor=vec4(0.0);return;}
+  float t=uTime;
+  float nx=(uv.x-uBeamCX)/max(uBeamHalfW,1e-4);
+  float env=pow(max(1.0-nx*nx,0.0),1.5);
+  float bend=0.0;
+  if(uWaveAmp>0.0){bend=(noise(vec2(uv.x*2.5+t*0.6,t*0.4))-0.5)*2.0*uWaveAmp;}
+  float yb=uBeamY+bend;
+  float dy=uv.y-yb;
+  float pxd=abs(dy)*uResolution.y;
+  vec3 col; float alpha;
+  if(dy<0.0 && uHasContent>0.5){col=uBezel;alpha=1.0;} else {col=vec3(0.0);alpha=0.0;}
+  if(dy>=0.0 && dy<uRevealH && uRevealH>0.0){
+    float k=dy/uRevealH;
+    float w=exp(-3.0*k)*(1.0-smoothstep(0.55,1.0,k));
+    vec2 sp=uv*uResolution/uResolution.y;
+    if(uShimmer>0.0 && env>0.0 && uHasContent>0.5){
+      float dx=snoise(vec2(sp.x*5.0,sp.y*12.0-t*1.3))*uShimmer*w*env;
+      float sa=w*env;
+      col=page(vec2(uv.x+dx,uv.y)).rgb*sa;
+      alpha=sa;
+    }
+    if(uHeat>0.0 && env>0.0){
+      float s=smoothstep(0.3,1.05,smokeField(sp*vec2(2.4,3.4),t));
+      float heat=w*uHeat*env*(0.4+0.9*s);
+      if(uSparkle>0.0){float f=fbm(sp*vec2(9.0,13.0)+vec2(0.0,-t*1.4));heat*=1.0+uSparkle*(f-0.5)*1.3;}
+      heat=max(heat,0.0);
+      vec3 emission=uColor*heat*uBright+vec3(heat*heat*0.35);
+      vec3 toned=(1.0-exp(-emission))*env;
+      float ea=max(max(toned.r,toned.g),toned.b);
+      col=toned+col*(1.0-ea); alpha=ea+alpha*(1.0-ea);
+    }
+  }
+  vec3 beam=vec3(0.0);
+  if(env>0.0){
+    float pd=pxd/max(env,0.18);
+    if(uCore>0.0){beam+=10.0*uCore*smoothstep(uHalfCore,uHalfCore*0.3,pd)*vec3(1.0);}
+    if(uGlow>0.0){float g=pow(uRadius/max(pd,0.75),0.9)*exp(-0.55*pd/uRadius);beam+=uGlow*g*uColor;}
+    beam*=uBright;
+  }
+  vec3 beamToned=(1.0-exp(-beam))*env;
+  float ba=max(max(beamToned.r,beamToned.g),beamToned.b);
+  if(ba>0.003){col=beamToned+col*(1.0-ba);alpha=ba+alpha*(1.0-ba);}
+  outColor=vec4(col,clamp(alpha,0.0,1.0));
+}`;
+
+function compile(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))console.error(gl.getShaderInfoLog(s));return s;}
+const vs=compile(gl.VERTEX_SHADER,VERT), fs=compile(gl.FRAGMENT_SHADER,FRAG);
+const program=gl.createProgram();gl.attachShader(program,vs);gl.attachShader(program,fs);gl.linkProgram(program);
+const uniforms={};for(let i=0,n=gl.getProgramParameter(program,gl.ACTIVE_UNIFORMS);i<n;i++){const info=gl.getActiveUniform(program,i);uniforms[info.name]=gl.getUniformLocation(program,info.name);}
+const quad=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,quad);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);gl.enableVertexAttribArray(0);gl.vertexAttribPointer(0,2,gl.FLOAT,false,0,0);
+const tex=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tex);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+
+let dpr=1,W=1,H=1,time=0,activity=0,last=performance.now();
+function resize(){
+  dpr=Math.min(devicePixelRatio||1,2);
+  W=Math.max(1,innerWidth); H=Math.max(1,innerHeight);
+  content.width=Math.round(W*dpr);content.height=Math.round(H*dpr);
+  fx.width=Math.round(W*dpr);fx.height=Math.round(H*dpr);
+  drawContent();
+}
+function drawContent(){
+  const ctx=c2d;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,W,H);
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,content);
+}
+
+const fract=x=>x-Math.floor(x), hash2=(x,y)=>fract(Math.sin(x*89.44+y*19.36)*22189.22), smooth01=x=>x*x*(3-2*x);
+function iHashCpu(vx,vy,r){const fx=Math.floor(vx*r),fy=Math.floor(vy*r),h00=hash2(fx/r,fy/r),h10=hash2((fx+1)/r,fy/r),h01=hash2(fx/r,(fy+1)/r),h11=hash2((fx+1)/r,(fy+1)/r),ix=smooth01(fract(vx*r)),iy=smooth01(fract(vy*r));return(h00*(1-ix)+h10*ix)*(1-iy)+(h01*(1-ix)+h11*ix)*iy;}
+function noiseCpu(vx,vy){let sum=0,s=2;for(let i=1;i<7;i++){sum+=iHashCpu(vx+i,vy+i,2*s)/s;s*=2;}return sum;}
+
+addEventListener('wheel',e=>{e.preventDefault();activity=Math.min(1,activity+Math.abs(e.deltaY)/600);},{passive:false});
+addEventListener('resize',resize);
+addEventListener('pointerdown',()=>{activity=Math.min(1,activity+0.25);});
+
+function frame(now){
+  const delta=Math.min((now-last)/1000,1/30); last=now;
+  time+=delta*DEFAULTS.speed;
+  activity*=Math.exp(-delta*2.4);
+  drawContent();
+
+  gl.useProgram(program);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,tex);
+  gl.uniform1i(uniforms.uContent,0);
+  gl.uniform2f(uniforms.uResolution,fx.width,fx.height);
+  gl.uniform1f(uniforms.uTime,time);
+  const clientH=Math.max(innerHeight,1), clientW=Math.max(innerWidth,1);
+  const bright=(1-Math.min(Math.max(DEFAULTS.flicker,0),1)*noiseCpu(time*1.8,3.7))*(1+Math.max(DEFAULTS.reactivity,0)*activity*1.6);
+  gl.uniform1f(uniforms.uBeamY,Math.min(Math.max(DEFAULTS.offset,0)/clientH,0.95));
+  gl.uniform1f(uniforms.uWaveAmp,Math.max(DEFAULTS.wave,0)/clientH);
+  gl.uniform1f(uniforms.uBeamCX,0.5);
+  gl.uniform1f(uniforms.uBeamHalfW,Math.min(Math.max(DEFAULTS.width,0.05),1)*0.5);
+  gl.uniform1f(uniforms.uHalfCore,Math.max(DEFAULTS.thickness,0.5)*dpr*0.5);
+  gl.uniform1f(uniforms.uCore,Math.max(DEFAULTS.core,0));
+  gl.uniform1f(uniforms.uRadius,Math.max(DEFAULTS.radius,0.5)*dpr);
+  gl.uniform1f(uniforms.uGlow,Math.max(DEFAULTS.glow,0));
+  gl.uniform3f(uniforms.uColor,DEFAULTS.color[0],DEFAULTS.color[1],DEFAULTS.color[2]);
+  gl.uniform1f(uniforms.uBright,bright);
+  gl.uniform1f(uniforms.uRevealH,Math.max(DEFAULTS.reveal,0)/clientH);
+  gl.uniform1f(uniforms.uHeat,Math.max(DEFAULTS.heat,0)*(0.3+0.7*activity));
+  gl.uniform1f(uniforms.uShimmer,(Math.max(DEFAULTS.shimmer,0)/clientW)*(0.25+0.75*activity));
+  gl.uniform1f(uniforms.uSparkle,Math.max(DEFAULTS.sparkle,0));
+  gl.uniform3f(uniforms.uBezel,1,1,1);
+  gl.uniform1f(uniforms.uMaxX,1);
+  gl.uniform1f(uniforms.uHasContent,1);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+  gl.viewport(0,0,fx.width,fx.height);
+  gl.clearColor(0,0,0,0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  requestAnimationFrame(frame);
+}
+
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
