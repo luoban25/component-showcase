@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>机器人眼球 TabBar · H5 预览</title>
+<style>
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: #05070f; color: #fff; margin: 0;
+  font-family: system-ui, "Microsoft YaHei", sans-serif;
+  display: flex; align-items: center; justify-content: center;
+}
+/* 用 div/span 承接 uvue 的 view/text：uvue 默认 view 是 flex 竖排、text 是块级 */
+div { display: flex; flex-direction: column; }
+span { display: block; flex-shrink: 0; }
+#frame {
+  width: 390px; height: 844px; border-radius: 28px; overflow: hidden;
+  border: 1px solid rgba(150, 186, 255, 0.18);
+  background: #080d1d;
+}
+#app { flex: 1; min-height: 0; }
+/* hover-class="rtb-item-pressed" 在 H5 里用 :active 近似 */
+.rtb-item:active { opacity: 0.82; }
+
+.page {
+  --rtb-bg: #080d1d;
+  --rtb-text: #F4F8FF;
+  --rtb-text-weak: rgba(226, 235, 255, 0.5);
+  flex: 1;
+  flex-direction: column;
+  background-color: var(--rtb-bg, #080d1d);
+}
+
+.page-top {
+  width: 100%;
+}
+
+.page-head {
+  flex-direction: column;
+  padding-left: 20px;
+  padding-right: 20px;
+  padding-top: 12px;
+  padding-bottom: 10px;
+}
+
+.page-title {
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 600;
+  color: var(--rtb-text, #F4F8FF);
+}
+
+.page-kicker {
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 2px;
+  color: var(--rtb-text-weak, rgba(226, 235, 255, 0.5));
+  margin-top: 2px;
+}
+
+.page-body {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage {
+  flex-direction: column;
+  align-items: center;
+}
+
+.stage-hint {
+  font-size: 14px;
+  line-height: 20px;
+  color: rgba(226, 235, 255, 0.72);
+}
+
+.stage-count {
+  font-size: 11px;
+  line-height: 16px;
+  color: rgba(226, 235, 255, 0.34);
+  margin-top: 6px;
+}
+
+
+.rtb {
+  --rtb-surface: rgba(11, 26, 68, 0.94);
+  --rtb-divider: rgba(255, 255, 255, 0.09);
+  --rtb-cyan: #4FD6FF;
+  --rtb-violet: #A183FF;
+  --rtb-text-weak: rgba(226, 235, 255, 0.5);
+  --rtb-text-dim: rgba(226, 235, 255, 0.28);
+  --rtb-grad-line: linear-gradient(to right, #4FD6FF, #A183FF);
+  --rtb-radius-pill: 999px;
+  flex-direction: column;
+  background-color: var(--rtb-surface, rgba(11, 26, 68, 0.94));
+}
+
+/* 顶部 1px 分隔线：App 端单边 border-width 不生效，用真实节点画 */
+.rtb-hairline {
+  width: 100%;
+  height: 1px;
+  background-color: var(--rtb-divider, rgba(255, 255, 255, 0.09));
+}
+
+.rtb-bar {
+  flex-direction: row;
+  height: 62px;
+}
+
+.rtb-item {
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.rtb-item-pressed {
+  opacity: 0.82;
+}
+
+.rtb-title {
+  font-size: 10px;
+  line-height: 13px;
+  margin-top: 4px;
+}
+.rtb-title-on {
+  color: var(--rtb-cyan, #4FD6FF);
+}
+.rtb-title-off {
+  color: var(--rtb-text-weak, rgba(226, 235, 255, 0.5));
+}
+
+/* 选中指示条：18x3 胶囊，青→紫横向渐变 */
+.rtb-dot {
+  width: 18px;
+  height: 3px;
+  margin-top: 3px;
+  border-radius: var(--rtb-radius-pill, 999px);
+}
+.rtb-dot-on {
+  background-image: var(--rtb-grad-line, linear-gradient(to right, #4FD6FF, #A183FF));
+}
+.rtb-dot-off {
+  background-color: transparent;
+}
+
+.rtb-safe {
+  width: 100%;
+}
+
+
+/* 组件自带 token 兜底：样式隔离下变量没继承进来时观感也正确 */
+.rti {
+  --rtb-cyan: #4FD6FF;
+  --rtb-violet: #A183FF;
+  --rtb-face: #05080f;
+  --rtb-head-on: #101a35;
+  --rtb-head-off: #0d1428;
+  --rtb-border: rgba(150, 186, 255, 0.18);
+  --rtb-text-dim: rgba(226, 235, 255, 0.34);
+  position: relative;
+  width: 30px;
+  height: 32px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* 光晕：App 端没有 box-shadow，用一层半透明方块假出选中辉光 */
+.rti-halo {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+}
+.rti-halo-on {
+  background-color: rgba(79, 214, 255, 0.15);
+}
+.rti-halo-off {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+.rti-head {
+  position: relative;
+  width: 26px;
+  height: 24px;
+  border-radius: 8px;
+  border-width: 1px;
+  border-style: solid;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+}
+.rti-head-on {
+  border-color: rgba(79, 214, 255, 0.55);
+  background-color: var(--rtb-head-on, #101a35);
+}
+.rti-head-off {
+  border-color: var(--rtb-border, rgba(150, 186, 255, 0.18));
+  background-color: var(--rtb-head-off, #0d1428);
+}
+
+/* 天线：细杆用绝对定位顶在头上，小球盖在杆顶 */
+.rti-antenna-stem {
+  position: absolute;
+  left: 12px;
+  top: -5px;
+  width: 2px;
+  height: 5px;
+  border-radius: 1px;
+}
+.rti-antenna-ball {
+  position: absolute;
+  left: 10px;
+  top: -9px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+.rti-accent-on {
+  background-color: var(--rtb-cyan, #4FD6FF);
+}
+.rti-accent-off {
+  background-color: var(--rtb-text-dim, rgba(226, 235, 255, 0.34));
+}
+.rti-ball-on {
+  background-color: var(--rtb-cyan, #4FD6FF);
+}
+.rti-ball-off {
+  background-color: var(--rtb-text-dim, rgba(226, 235, 255, 0.34));
+}
+
+/* 面部：横向椭圆黑屏。overflow:hidden 保证眼睛公转不出框 */
+.rti-face {
+  position: relative;
+  width: 18px;
+  height: 12px;
+  border-radius: 6px;
+  background-color: var(--rtb-face, #05080f);
+  overflow: hidden;
+}
+
+/* 眼睛组容器与面板等大，绕自身中心旋转；两只眼睛相对中心各偏 3px */
+.rti-eyes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 18px;
+  height: 12px;
+  transform-origin: center center;
+}
+
+.rti-eye {
+  position: absolute;
+}
+.rti-eye-a {
+  left: 4px;
+  top: 4px;
+}
+.rti-eye-b {
+  left: 10px;
+  top: 4px;
+}
+
+/* 四种眼睛形状 —— 宽度/高度/圆角不同，圆心都落在面板中心上 */
+.rti-eye-home {
+  width: 4px;
+  height: 4px;
+  border-radius: 2px;
+}
+.rti-eye-explore {
+  width: 5px;
+  height: 2px;
+  border-radius: 1px;
+  left: 3px;
+  top: 5px;
+}
+.rti-eye-ai {
+  width: 2px;
+  height: 5px;
+  border-radius: 1px;
+  left: 5px;
+  top: 3px;
+}
+/* 圆环眼是空心的：底色透明，只留描边；颜色由 ring-on / ring-off 给，避免复合选择器 */
+.rti-eye-mine {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  border-width: 1px;
+  border-style: solid;
+  background-color: transparent;
+  left: 4px;
+  top: 3px;
+}
+
+.rti-eye-on {
+  background-color: var(--rtb-cyan, #4FD6FF);
+}
+.rti-eye-off {
+  background-color: var(--rtb-text-dim, rgba(226, 235, 255, 0.34));
+}
+.rti-eye-ring-on {
+  border-color: var(--rtb-cyan, #4FD6FF);
+}
+.rti-eye-ring-off {
+  border-color: var(--rtb-text-dim, rgba(226, 235, 255, 0.34));
+}
+
+/* 左右耳：半球凸起，压在机身两侧 */
+.rti-ear {
+  position: absolute;
+  top: 8px;
+  width: 4px;
+  height: 8px;
+  border-radius: 2px;
+}
+.rti-ear-l {
+  left: -4px;
+}
+.rti-ear-r {
+  left: 24px;
+}
+.rti-ear-on {
+  background-color: rgba(79, 214, 255, 0.55);
+}
+.rti-ear-off {
+  background-color: rgba(150, 186, 255, 0.2);
+}
+
+</style>
+</head>
+<body>
+<div id="frame"><div id="app"></div></div>
+<script src="vendor/vue.global.js"></script>
+<script>
+window.__uni = {
+  getWindowInfo: () => ({ safeAreaInsets: { top: 0, bottom: 0 }, windowWidth: 390, windowHeight: 844 })
+};
+
+// 眼睛动效的数学。全部是纯函数，组件只负责按帧取值 → 不依赖 CSS 动画（App 端不可靠）。
+//
+// 三条曲线：
+//   spinAngle  选中瞬间：0 → 360 度，正好转满一圈
+//   idleAngle  选中之后：以中心为轴 ±amp 度缓慢摆动（"眼睛会动"）
+//   blinkScale 眨眼：一个周期里最后 blinkFrac 比例的时间闭眼
+/** 转满一圈的时长（毫秒） */
+const SPIN_MS = 660;
+/** 一圈的度数 */
+const FULL_TURN = 360;
+/** easeOutCubic：起手快、收尾稳，转一圈停在原点不会有突兀的急停 */
+function easeOutCubic(t) {
+    const inv = 1 - t;
+    return 1 - inv * inv * inv;
+}
+/** 选中瞬间的眼睛转角。elapsedMs 超过 SPIN_MS 后固定停在 360（与 0 视觉等价） */
+function spinAngle(elapsedMs) {
+    if (elapsedMs <= 0)
+        return 0;
+    const t = elapsedMs / SPIN_MS;
+    if (t >= 1)
+        return FULL_TURN;
+    return easeOutCubic(t) * FULL_TURN;
+}
+/** 静止态摆动角（度） */
+function idleAngle(timeSec, amp, periodSec) {
+    return amp * Math.sin(timeSec * Math.PI * 2 / periodSec);
+}
+/** 眨眼开合比例，1 = 睁眼，0.12 = 闭眼 */
+function blinkScale(nowMs, periodMs, blinkFrac) {
+    const p = (nowMs % periodMs) / periodMs;
+    if (p > 1 - blinkFrac)
+        return 0.12;
+    return 1;
+}
+/** 选中时的"抬头"位移（px） */
+function liftOffset(timeSec, amp, periodSec) {
+    return -amp * Math.abs(Math.sin(timeSec * Math.PI * 2 / periodSec));
+}
+
+
+const RobotTabIcon = {
+  name: "RobotTabIcon",
+  props: {
+    active: { type: Boolean, default: false },
+    // 决定眼睛形状：home 圆点 / explore 横条 / ai 竖条 / mine 圆环
+    variant: { type: String, default: 'home' }
+},
+  template: "\n  <div class=\"rti\" :style=\"{ transform: 'translateY(' + liftText + 'px)' }\">\n    <div class=\"rti-halo\" :class=\"haloClass\"></div>\n\n    <div class=\"rti-head\" :class=\"headClass\">\n      <!-- 天线：一根细杆 + 顶端小球（参考图里的机器人头部特征） -->\n      <div class=\"rti-antenna-stem\" :class=\"accentClass\"></div>\n      <div class=\"rti-antenna-ball\" :class=\"ballClass\"></div>\n\n      <!-- 面部黑屏 -->\n      <div class=\"rti-face\">\n        <!-- 眼睛组：整体旋转 = \"眼睛旋转一圈\"。半径 3px，转满 360° 也不会溢出面板 -->\n        <div class=\"rti-eyes\" :style=\"{ transform: 'rotate(' + angleText + 'deg)' }\">\n          <div class=\"rti-eye rti-eye-a\" :class=\"eyeClass\" :style=\"{ transform: 'scaleY(' + blinkText + ')' }\"></div>\n          <div class=\"rti-eye rti-eye-b\" :class=\"eyeClass\" :style=\"{ transform: 'scaleY(' + blinkText + ')' }\"></div>\n        </div>\n      </div>\n\n      <!-- 左右\"耳朵\"：对称半球凸起 -->\n      <div class=\"rti-ear rti-ear-l\" :class=\"earClass\"></div>\n      <div class=\"rti-ear rti-ear-r\" :class=\"earClass\"></div>\n    </div>\n  </div>\n",
+  setup(__p, __ctx) {
+    const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue
+    const uni = window.__uni
+    const __props = (spec) => __p
+    const __emits = (names) => __ctx.emit
+// 单个 tab 图标：机器人头 + 黑屏脸 + 两只眼睛。
+//
+// 动效契约（外部只需要给 active / variant）：
+//   active 由 false → true 的那一刻，眼睛用 660ms 转满整整一圈（easeOutCubic）；
+//   选中期间眼睛做 ±9° 慢速摆动并每 3.2s 眨一次眼，头部轻微上浮 —— 即"眼睛会动"。
+//   未选中：完全静止，整体压暗。
+//
+// 为什么不用 CSS animation / transition：App 端不可靠（见 ucss 规则表），
+// 这里统一用 setInterval 按帧写 :style 的 transform 字符串，
+// 与工程里 floating-robot.uvue 的做法一致。
+const props = __props({
+    active: { type: Boolean, default: false },
+    // 决定眼睛形状：home 圆点 / explore 横条 / ai 竖条 / mine 圆环
+    variant: { type: String, default: 'home' }
+});
+const angle = ref(0);
+const blink = ref(1);
+const lift = ref(0);
+let timer = -1;
+let mounted = false;
+let spinStart = -1;
+let idleTime = 0;
+let previous = 0;
+const angleText = computed(() => angle.value.toFixed(2));
+const blinkText = computed(() => blink.value.toFixed(3));
+const liftText = computed(() => lift.value.toFixed(2));
+const haloClass = computed(() => props.active ? 'rti-halo rti-halo-on' : 'rti-halo rti-halo-off');
+const headClass = computed(() => props.active ? 'rti-head rti-head-on' : 'rti-head rti-head-off');
+const accentClass = computed(() => props.active ? 'rti-accent-on' : 'rti-accent-off');
+const ballClass = computed(() => props.active ? 'rti-ball rti-ball-on' : 'rti-ball rti-ball-off');
+const earClass = computed(() => props.active ? 'rti-ear-on' : 'rti-ear-off');
+const eyeClass = computed(() => {
+    const shape = 'rti-eye-shape rti-eye-' + props.variant;
+    // 圆环眼是空心的：底色透明 + 只留描边，所以单独给一组 class，不用复合选择器
+    if (props.variant == 'mine') {
+        return shape + (props.active ? ' rti-eye-ring-on' : ' rti-eye-ring-off');
+    }
+    return shape + (props.active ? ' rti-eye-on' : ' rti-eye-off');
+});
+function stop() {
+    if (timer != -1) {
+        clearInterval(timer);
+        timer = -1;
+    }
+}
+function frame() {
+    const now = Date.now();
+    const dt = Math.min(100, now - previous) / 1000;
+    previous = now;
+    idleTime = idleTime + dt;
+    // 转角：先走完"一整圈"，之后转成慢速摆动
+    if (spinStart >= 0) {
+        const elapsed = now - spinStart;
+        if (elapsed >= SPIN_MS) {
+            spinStart = -1;
+            idleTime = 0;
+            angle.value = 0;
+        }
+        else {
+            angle.value = spinAngle(elapsed);
+        }
+    }
+    else {
+        angle.value = idleAngle(idleTime, 9, 3.4);
+    }
+    blink.value = blinkScale(now, 3200, 0.055);
+    lift.value = liftOffset(idleTime, 1.4, 2.6);
+}
+function sync() {
+    stop();
+    if (!mounted || !props.active) {
+        angle.value = 0;
+        blink.value = 1;
+        lift.value = 0;
+        return;
+    }
+    spinStart = Date.now();
+    idleTime = 0;
+    previous = Date.now();
+    timer = setInterval(() => { frame(); }, 16);
+}
+watch(() => props.active, () => { sync(); });
+onMounted(() => {
+    mounted = true;
+    if (props.active) {
+        sync();
+    }
+});
+onUnmounted(() => {
+    mounted = false;
+    stop();
+});
+
+    return { props, angle, blink, lift, timer, mounted, spinStart, idleTime, previous, angleText, blinkText, liftText, haloClass, headClass, accentClass, ballClass, earClass, eyeClass, stop, frame, sync }
+  }
+};
+
+const RobotTabBar = {
+  name: "RobotTabBar",
+  props: {
+    items: { type: Array, default: [] },
+    activeKey: { type: String, default: '' },
+    safeArea: { type: Boolean, default: true }
+},
+  template: "\n  <div class=\"rtb\">\n    <div class=\"rtb-hairline\"></div>\n\n    <div class=\"rtb-bar\">\n      <div\n        v-for=\"cell in cells\"\n        :key=\"cell.key\"\n        class=\"rtb-item\"\n        hover-class=\"rtb-item-pressed\"\n        :hover-stay-time=\"80\"\n        @click=\"select(cell.key)\"\n      >\n        <RobotTabIcon :active=\"cell.active\" :variant=\"cell.variant\" />\n        <span :class=\"cell.titleClass\">{{ cell.title }}</span>\n        <div class=\"rtb-dot\" :class=\"cell.dotClass\"></div>\n      </div>\n    </div>\n\n    <div class=\"rtb-safe\" :style=\"{ height: safeBottom }\"></div>\n  </div>\n",
+  setup(__p, __ctx) {
+    const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue
+    const uni = window.__uni
+    const __props = (spec) => __p
+    const __emits = (names) => __ctx.emit
+// 底部 tabbar：机器人眼球图标 + 选中时眼睛转一圈。
+//
+// 数量由外部 items 决定（数据驱动，几个 tab 都行，不写死 4 个）：
+//   items: Array<TabItem>  —— { key, title } 必填，variant 可选（决定眼睛形状）
+//   activeKey: string      —— 当前选中项的 key
+//   @change(key)           —— 点了别的 tab
+//   @reselect(key)         —— 重复点了当前 tab
+//
+// 图标形状 variant 取值：home（圆点眼）/ explore（横条眼）/ ai（竖条眼）/ mine（圆环眼）；
+// 不传时按下标轮流取，保证多几个 tab 也有各自的形状。
+const VARIANTS = ['home', 'explore', 'ai', 'mine'];
+const props = __props({
+    items: { type: Array, default: [] },
+    activeKey: { type: String, default: '' },
+    safeArea: { type: Boolean, default: true }
+});
+const emit = __emits(['change', 'reselect']);
+const bottomInset = ref(0);
+const safeBottom = computed(() => bottomInset.value.toString() + 'px');
+onMounted(() => {
+    const windowInfo = uni.getWindowInfo();
+    bottomInset.value = windowInfo.safeAreaInsets.bottom;
+});
+const cells = computed(() => {
+    const result = [];
+    const total = props.items.length;
+    let i = 0;
+    while (i < total) {
+        const item = props.items[i];
+        const keyText = item.key.length > 0 ? item.key : 'tab-' + i.toString();
+        const active = props.activeKey.length > 0 && keyText == props.activeKey;
+        let variant = item.variant;
+        if (variant == null || variant.length == 0) {
+            variant = VARIANTS[i % VARIANTS.length];
+        }
+        result.push({
+            key: keyText,
+            title: item.title,
+            variant: variant,
+            active: active,
+            titleClass: active ? 'rtb-title rtb-title-on' : 'rtb-title rtb-title-off',
+            dotClass: active ? 'rtb-dot-on' : 'rtb-dot-off'
+        });
+        i = i + 1;
+    }
+    return result;
+});
+function select(key) {
+    if (key == props.activeKey) {
+        emit('reselect', key);
+    }
+    else {
+        emit('change', key);
+    }
+}
+
+    return { VARIANTS, props, emit, bottomInset, safeBottom, cells, select }
+  }
+};
+
+const PageIndex = {
+  name: "PageIndex",
+  props: {},
+  template: "\n  <div class=\"page rtb-theme\">\n    <div class=\"page-top\" :style=\"{ height: safeTop + 'px' }\"></div>\n\n    <div class=\"page-head\">\n      <span class=\"page-title\">{{ activeTitle }}</span>\n      <span class=\"page-kicker\">ROBOT EYE TABBAR</span>\n    </div>\n\n    <div class=\"page-body\">\n      <div class=\"stage\">\n        <span class=\"stage-hint\">点下面的 tab，看图标眼睛转一圈</span>\n        <span class=\"stage-count\">当前 {{ tabs.length }} 个入口 · 数量数据驱动</span>\n      </div>\n    </div>\n\n    <RobotTabBar :items=\"tabs\" :active-key=\"activeKey\" @change=\"onChange\" @reselect=\"onReselect\" />\n  </div>\n",
+  setup(__p, __ctx) {
+    const { ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue
+    const uni = window.__uni
+    const __props = (spec) => __p
+    const __emits = (names) => __ctx.emit
+// 演示页：只负责持有 tab 列表和当前选中项。
+// ★ 要几个 tab 就改下面 tabs 数组，别的都不用动。
+const tabs = ref([
+    { key: 'home', title: '首页', variant: 'home' },
+    { key: 'explore', title: '探索', variant: 'explore' },
+    { key: 'ai', title: 'AI', variant: 'ai' },
+    { key: 'mine', title: '我的', variant: 'mine' }
+]);
+const activeKey = ref('home');
+const safeTop = ref(0);
+const activeTitle = computed(() => {
+    const total = tabs.value.length;
+    let i = 0;
+    while (i < total) {
+        const item = tabs.value[i];
+        if (item.key == activeKey.value)
+            return item.title;
+        i = i + 1;
+    }
+    return '';
+});
+onMounted(() => {
+    const windowInfo = uni.getWindowInfo();
+    safeTop.value = windowInfo.safeAreaInsets.top;
+});
+function onChange(key) {
+    activeKey.value = key;
+}
+function onReselect(_key) {
+    // 重复点击当前 tab：这里留空，接路由的项目里做"回到顶部"
+}
+
+    return { tabs, activeKey, safeTop, activeTitle, onChange, onReselect }
+  }
+};
+
+const app = Vue.createApp(PageIndex);
+app.component('RobotTabIcon', RobotTabIcon);
+app.component('RobotTabBar', RobotTabBar);
+app.mount('#app');
+</script>
+</body>
+</html>
