@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI 组件作品集 · 面试版</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --ink:#0e1116;
+    --muted:#666e7a;
+    --faint:#9aa2ae;
+    --line:#e7e9ee;
+    --soft:#f7f8fa;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    line-height:1.6;
+  }
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 28px}
+
+  /* 顶栏 */
+  header.top{
+    position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:18px;
+    padding:15px 0;border-bottom:1px solid var(--line);
+    background:rgba(255,255,255,.86);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  }
+  .brand{font-size:15px;font-weight:650;letter-spacing:.01em}
+  .nav{margin-left:auto;display:flex;gap:2px;flex-wrap:wrap}
+  .nav a{color:var(--muted);font-size:13.5px;padding:7px 12px;border-radius:8px;transition:color .15s,background .15s}
+  .nav a:hover{color:var(--ink);background:var(--soft)}
+
+  /* 封面 */
+  .hero{padding:76px 0 40px;border-bottom:1px solid var(--line)}
+  .hero .kicker{font-size:13px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase}
+  .hero h1{margin:14px 0 16px;font-size:clamp(32px,5.2vw,52px);font-weight:750;letter-spacing:-.03em;line-height:1.06}
+  .hero p.lead{max-width:640px;margin:0;color:var(--muted);font-size:16px}
+  .hero .facts{display:flex;gap:34px;margin-top:30px;flex-wrap:wrap}
+  .hero .fact b{display:block;font-size:24px;font-weight:700;letter-spacing:-.02em}
+  .hero .fact span{font-size:12.5px;color:var(--faint)}
+
+  /* 分区 */
+  .sec{padding:52px 0 8px}
+  .sec-head{display:flex;align-items:baseline;gap:14px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+  .sec-head .idx{font-size:13px;color:var(--faint);font-variant-numeric:tabular-nums}
+  .sec-head h2{margin:0;font-size:22px;font-weight:700;letter-spacing:-.015em}
+  .sec-head .cnt{font-size:12.5px;color:var(--faint)}
+  .sec-head p{margin:0 0 0 auto;font-size:13px;color:var(--faint)}
+
+  /* 作品（全部展开） */
+  .case{padding:34px 0;border-bottom:1px solid var(--line)}
+  .case:last-of-type{border-bottom:0}
+  .case .frame{
+    position:relative;height:420px;border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;background:var(--soft);
+  }
+  .case .frame iframe{position:absolute;top:0;left:0;transform-origin:0 0;border:0;background:transparent}
+  .case .frame .open{
+    position:absolute;right:12px;top:12px;z-index:3;
+    font-size:12px;color:var(--ink);background:rgba(255,255,255,.9);border:1px solid var(--line);
+    padding:6px 12px;border-radius:999px;backdrop-filter:blur(6px);transition:background .15s;
+  }
+  .case .frame .open:hover{background:#fff}
+  .case .body{display:flex;gap:26px;padding:18px 4px 0}
+  .case .body .no{font-size:13px;color:var(--faint);font-variant-numeric:tabular-nums;flex:0 0 34px;padding-top:3px}
+  .case .body .txt{flex:1;min-width:0}
+  .case .body h3{margin:0 0 8px;font-size:19px;font-weight:680;letter-spacing:-.015em}
+  .case .body p{margin:0;color:var(--muted);font-size:14.5px;max-width:760px}
+  .case .body .tags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .tag{font-size:11.5px;color:var(--muted);border:1px solid var(--line);background:var(--soft);padding:3px 10px;border-radius:999px}
+
+  footer{margin-top:40px;padding:34px 0 56px;border-top:1px solid var(--line);color:var(--faint);font-size:13px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media (max-width:720px){
+    .wrap{padding:0 18px}
+    .hero{padding:52px 0 32px}
+    .nav{display:none}
+    .case .frame{height:320px}
+    .case .body{flex-direction:column;gap:6px}
+    .case .body .no{padding-top:0}
+    .sec-head p{display:none}
+  }
+  @media print{
+    header.top,.case .frame .open{display:none}
+    .case{break-inside:avoid}
+    .case .frame{height:300px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">组件作品集 · 面试版</div>
+    <nav class="nav">
+      <a href="#glass">玻璃拟态</a>
+      <a href="#status">状态指示</a>
+      <a href="#fluid">流体动效</a>
+      <a href="#3d">3D · 复刻</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div class="kicker">Portfolio · UI / Motion / WebGL</div>
+    <h1>UI 组件作品集</h1>
+    <p class="lead">16 件可交互组件，覆盖玻璃拟态界面、状态指示器、流体动效与 3D / 源码复刻四类。每一件都是真实可运行的前端产物——页面里的预览就是活的，可直接操作。</p>
+    <div class="facts">
+      <div class="fact"><b>16</b><span>件作品</span></div>
+      <div class="fact"><b>4</b><span>类方向</span></div>
+      <div class="fact"><b>100%</b><span>可运行</span></div>
+      <div class="fact"><b>WebGL / Canvas / CSS</b><span>技术栈</span></div>
+    </div>
+  </section>
+
+  <!-- 01 玻璃拟态 -->
+  <section class="sec" id="glass">
+    <div class="sec-head"><span class="idx">01</span><h2>玻璃拟态</h2><span class="cnt">5 件</span><p>卡片 · 界面 · 玻璃质感</p></div>
+
+    <article class="case">
+      <div class="frame" data-src="./黑色天气卡.html" data-basew="600"><iframe title="Atmos 天气卡" loading="lazy"></iframe><a class="open" href="./黑色天气卡.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">01</div><div class="txt"><h3>Atmos 天气卡</h3><p>WebGL 实时烟雾流体天气卡：GPU 上按物理像素渲染着色器，支持切换城市、华氏/摄氏、未来五天预报，切换时配色与温度数字带过渡动画。</p><div class="tags"><span class="tag">WebGL</span><span class="tag">GLSL</span><span class="tag">交互</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./流体抖动-动态卡片项目/流体抖动-动态卡片.html" data-basew="600"><iframe title="流体抖动 · 登录页" loading="lazy"></iframe><a class="open" href="./流体抖动-动态卡片项目/流体抖动-动态卡片.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">02</div><div class="txt"><h3>流体抖动 · 登录页</h3><p>全屏烟雾流体 H5 登录页，单文件自包含（字体内嵌），自适应全屏布局，烟雾场由噪声 + 域扭曲实时生成。</p><div class="tags"><span class="tag">WebGL</span><span class="tag">登录页</span><span class="tag">自包含</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./SPECTRA-OCEAN-20260731/index.html" data-basew="600"><iframe title="SPECTRA 支付卡" loading="lazy"></iframe><a class="open" href="./SPECTRA-OCEAN-20260731/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">03</div><div class="txt"><h3>SPECTRA · 支付卡</h3><p>React + Three.js 实时流体支付卡，蓝紫青三色流动场，卡片为玻璃质感，用于支付完成态展示。</p><div class="tags"><span class="tag">React</span><span class="tag">Three.js</span><span class="tag">实时流体</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./SPECTRA-Smoke-Card-Standalone/index.html" data-basew="600"><iframe title="SPECTRA 烟雾卡" loading="lazy"></iframe><a class="open" href="./SPECTRA-Smoke-Card-Standalone/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">04</div><div class="txt"><h3>SPECTRA · 烟雾卡</h3><p>SPECTRA ORIGINAL 烟雾卡片，独立静态工程（无构建依赖），保留原始 WebGL / GLSL 参数与交互。</p><div class="tags"><span class="tag">React</span><span class="tag">Three.js</span><span class="tag">GLSL</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./pulse-aperture-card-long-v2/index.html" data-basew="600"><iframe title="PULSE 光圈卡片" loading="lazy"></iframe><a class="open" href="./pulse-aperture-card-long-v2/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">05</div><div class="txt"><h3>PULSE · 光圈卡片</h3><p>脉冲光圈卡片（长条 wide 版）：呼吸式光圈动画 + SVG 遮罩异形卡片，纯 CSS 动画驱动。</p><div class="tags"><span class="tag">CSS 动画</span><span class="tag">SVG 遮罩</span><span class="tag">光圈</span></div></div></div>
+    </article>
+  </section>
+
+  <!-- 02 状态指示 -->
+  <section class="sec" id="status">
+    <div class="sec-head"><span class="idx">02</span><h2>状态指示</h2><span class="cnt">3 件</span><p>小部件 · 状态流转 · 像素</p></div>
+
+    <article class="case">
+      <div class="frame" data-src="./转写中/index.html" data-basew="420"><iframe title="状态胶囊 · 转写中" loading="lazy"></iframe><a class="open" href="./转写中/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">06</div><div class="txt"><h3>状态胶囊 · 转写中</h3><p>九格像素闪烁指示器，亮度曲线按录屏逐帧校正，纯 CSS keyframes 循环，含 reduced-motion 降级。</p><div class="tags"><span class="tag">CSS 动画</span><span class="tag">像素动效</span><span class="tag">无障碍</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./HTML组件-20260917/preview (1).html" data-basew="480"><iframe title="Smooth 状态流转" loading="lazy"></iframe><a class="open" href="./HTML组件-20260917/preview (1).html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">07</div><div class="txt"><h3>Smooth 状态流转</h3><p>平滑状态流转步骤指示器：逐行揭示 + 完成态勾选，等宽字体排版，适合任务/流程类界面。</p><div class="tags"><span class="tag">CSS</span><span class="tag">状态机</span><span class="tag">动效</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./fluid-progress-engineering-edition（拖动胶囊）/fluid-progress-engineering-edition/index.html" data-basew="600"><iframe title="Fluid 流体进度条" loading="lazy"></iframe><a class="open" href="./fluid-progress-engineering-edition（拖动胶囊）/fluid-progress-engineering-edition/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">08</div><div class="txt"><h3>Fluid 流体进度条</h3><p>可拖拽流体胶囊进度条：6 套配色主题、实时调参面板，工程化拆分（CSS + 主题 JS + 逻辑 JS）。</p><div class="tags"><span class="tag">Canvas</span><span class="tag">拖拽</span><span class="tag">6 色主题</span></div></div></div>
+    </article>
+  </section>
+
+  <!-- 03 流体动效 -->
+  <section class="sec" id="fluid">
+    <div class="sec-head"><span class="idx">03</span><h2>流体动效</h2><span class="cnt">5 件</span><p>烟雾 · 液体 · 流光</p></div>
+
+    <article class="case">
+      <div class="frame" data-src="./AI-WebGL-Prompt-Final（对话框）/index.html" data-basew="600"><iframe title="AI 对话组件" loading="lazy"></iframe><a class="open" href="./AI-WebGL-Prompt-Final（对话框）/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">09</div><div class="txt"><h3>AI 对话组件</h3><p>WebGL2 液体 + SDF 效果的 AI 对话面板：酸性绿主题、玻璃拟态层叠、网格底纹与暗角，单文件自包含。</p><div class="tags"><span class="tag">WebGL2</span><span class="tag">SDF</span><span class="tag">液体</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./HTML组件-20260917/滑动蓝色烟雾.html" data-basew="600"><iframe title="滑动蓝色烟雾" loading="lazy"></iframe><a class="open" href="./HTML组件-20260917/滑动蓝色烟雾.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">10</div><div class="txt"><h3>滑动蓝色烟雾</h3><p>激光滑动蓝色烟雾效果：双 Canvas 分层（内容层 + 特效层），参数化速度/厚度/辉光/闪烁/火花，白底简化预览。</p><div class="tags"><span class="tag">WebGL</span><span class="tag">激光</span><span class="tag">烟雾</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./ribbon_gpu_v42_bottom_fill/index.html" data-basew="600"><iframe title="丝带 · 纤维流光" loading="lazy"></iframe><a class="open" href="./ribbon_gpu_v42_bottom_fill/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">11</div><div class="txt"><h3>丝带 · 纤维流光</h3><p>GPU 丝带按钮动效：药丸形按钮内嵌光谱纤维流光，底部填充优化版（V4.2），可点击交互。</p><div class="tags"><span class="tag">GPU 着色器</span><span class="tag">丝带</span><span class="tag">按钮</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./流体抖动-背景图交互试验/流体抖动-背景图交互.html" data-basew="600"><iframe title="背景折射 · 点阵抖动" loading="lazy"></iframe><a class="open" href="./流体抖动-背景图交互试验/流体抖动-背景图交互.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">12</div><div class="txt"><h3>背景折射 · 点阵抖动</h3><p>WebGL2 单画布背景折射 + Bayer 8×8 点阵抖动：低频流场生成 UV 位移，点阵区扭曲更强，无 DOM 叠加层。</p><div class="tags"><span class="tag">WebGL2</span><span class="tag">折射</span><span class="tag">点阵</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./HTML组件-20260917/抖动数据.html" data-basew="600"><iframe title="抖动数据 · 解密" loading="lazy"></iframe><a class="open" href="./HTML组件-20260917/抖动数据.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">13</div><div class="txt"><h3>抖动数据 · 解密</h3><p>DecryptReveal 解密抖动：鼠标扫过面板时揭示底层 UI，Canvas 快照 + 着色器管线实现字符抖动/解密观感。</p><div class="tags"><span class="tag">Canvas</span><span class="tag">文字动效</span><span class="tag">交互</span></div></div></div>
+    </article>
+  </section>
+
+  <!-- 04 3D · 复刻 -->
+  <section class="sec" id="3d">
+    <div class="sec-head"><span class="idx">04</span><h2>3D · 复刻</h2><span class="cnt">3 件</span><p>三维 · 还原 · 交互</p></div>
+
+    <article class="case">
+      <div class="frame" data-src="./HTML组件-20260917/蓝色动态脸.html" data-basew="600"><iframe title="Spline 蓝色动态脸" loading="lazy"></iframe><a class="open" href="./HTML组件-20260917/蓝色动态脸.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">14</div><div class="txt"><h3>Spline 蓝色动态脸</h3><p>Spline 3D 动态人脸：实时光照与表情动画，鼠标可交互旋转，单文件自包含。</p><div class="tags"><span class="tag">Spline</span><span class="tag">3D</span><span class="tag">实时渲染</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./安全三角中文全屏稳定版-20260811/dist/index.html" data-basew="600"><iframe title="安全三角 · 菜单守卫" loading="lazy"></iframe><a class="open" href="./安全三角中文全屏稳定版-20260811/dist/index.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">15</div><div class="txt"><h3>安全三角 · 菜单守卫</h3><p>Vue 3 实现的多级菜单鼠标意图守卫与「安全三角形」可视化：鼠标斜向移动时保持子菜单不误关，含守卫遮罩层。</p><div class="tags"><span class="tag">Vue 3</span><span class="tag">TypeScript</span><span class="tag">交互模式</span></div></div></div>
+    </article>
+
+    <article class="case">
+      <div class="frame" data-src="./shipswift-第一页复刻-20260917/shader-demo.html" data-basew="700"><iframe title="ShipSwift 第一屏复刻" loading="lazy"></iframe><a class="open" href="./shipswift-第一页复刻-20260917/shader-demo.html" target="_blank" rel="noopener">新窗口打开 ↗</a></div>
+      <div class="body"><div class="no">16</div><div class="txt"><h3>ShipSwift · 第一屏复刻</h3><p>对开源 SwiftUI 组件库 ShipSwift 视频第一屏的源码级复刻：WebGL 等离子场背景 + 手机壳 + 可收起控制面板，参数面与源码 Controls Sheet 一致。</p><div class="tags"><span class="tag">WebGL</span><span class="tag">复刻</span><span class="tag">源码级拆解</span></div></div></div>
+    </article>
+  </section>
+
+  <footer>
+    <span>UI 组件作品集 · 16 件可交互组件</span>
+    <span>E:\未开源AI · 未开源作品归档</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+  /* 预览等比缩放：整块渲染后缩小填满 frame 宽度 */
+  function fit(frame){
+    var ifr=frame.querySelector('iframe');if(!ifr)return;
+    var baseW=parseFloat(frame.getAttribute('data-basew')||'600');
+    var cw=frame.clientWidth, ch=frame.clientHeight;
+    if(!cw||!ch)return;
+    var s=cw/baseW;
+    ifr.style.width=baseW+'px';
+    ifr.style.height=Math.ceil(ch/s)+'px';
+    ifr.style.transform='scale('+s+')';
+  }
+  function fitAll(){Array.prototype.forEach.call(document.querySelectorAll('.frame'),fit);}
+  window.addEventListener('resize',fitAll);
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',fitAll);}else{fitAll();}
+  window.addEventListener('load',fitAll);
+
+  /* 视口懒挂载：只有滚进视口的预览才挂 iframe，避免 16 个 WebGL 同屏打满 GPU */
+  function initLazy(){
+    var frames=Array.prototype.slice.call(document.querySelectorAll('.frame'));
+    function mount(f){var i=f.querySelector('iframe');if(i&&!i.getAttribute('src'))i.setAttribute('src',f.getAttribute('data-src'));}
+    function unmount(f){var i=f.querySelector('iframe');if(i&&i.getAttribute('src'))i.setAttribute('src','');}
+    frames.forEach(function(f){f.querySelector('iframe').removeAttribute('src');});
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){ e.isIntersecting?mount(e.target):unmount(e.target); });
+    },{rootMargin:'500px 0px'});
+    frames.forEach(function(f){io.observe(f);});
+  }
+  if('IntersectionObserver' in window){initLazy();}
+})();
+</script>
+</body>
+</html>
